@@ -9,13 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { toast } from "sonner"
-import { ArrowLeftCircle, FileDown, FileInput, Plus, Info, History } from 'lucide-react'
+import { ArrowLeftCircle, FileDown, FileInput, Plus, Info, History, User, Loader, LogOut, Verified } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
+import { useUser } from '@auth0/nextjs-auth0/client'
+import Image from 'next/image'
+import Error from 'next/error'
 
 interface Account {
   id: number
@@ -35,6 +39,87 @@ interface Transaction {
   fromAccount: number
   toAccount?: number
   exchangeRate?: number
+}
+
+export function UserIcon() {
+  const { user, error, isLoading } = useUser()
+  if (error) {
+    console.error(error)
+    return <User className="h-4 w-4" />
+  }
+  return (
+    <>
+      {/* user profile */}
+      { isLoading ? (
+        <Loader className="h-4 w-4 animate-spin" />
+      ) : (
+        user && user.picture && user.name ? <Image src={user.picture} className="h-4 w-4 rounded-full" alt={user.name} width={24} height={24} /> : <User className="h-4 w-4" />
+      )}
+    </>
+  )
+}
+  
+export function AccountSheet() {
+  const { user, error, isLoading } = useUser()
+  if (error) {
+    console.error(error)
+    return <Error statusCode={500} />
+  }
+  return (
+    <>
+      { isLoading && (
+        <div className='flex items-center justify-center h-full w-full'>
+          <Loader className="h-8 w-8 animate-spin" /> 
+        </div>
+      )}
+      { !user && !isLoading && (
+        <SheetHeader>
+          <SheetTitle>Sign-in</SheetTitle>
+          <SheetDescription className='flex flex-col gap-4'>
+            <p>Sign-in to access your account details.</p>
+
+            <p>Don&apos;t have an account? Use the button below to sign-up.</p>
+
+            {/* vercel auth0 integration */}
+            <div className="flex justify-around gap-4">
+              <a href="/api/auth/login" className="flex grow">
+                <Button variant="outline" className='grow'>
+                  <User className="h-4 w-4" />
+                  Sign-in
+                </Button>
+              </a>
+            </div>
+          </SheetDescription>
+        </SheetHeader>
+      )}
+      { user && user.email_verified && user.name && user.picture && (
+        <>
+          <SheetHeader>
+            <SheetTitle>Account Details</SheetTitle>
+          </SheetHeader>
+          <Card>
+            <CardContent>
+              <CardHeader className='px-0'>
+                <div className="flex items-center gap-4">
+                  <Image src={user.picture} className="h-12 w-12 rounded-full" alt={user.name} width={48} height={48} />
+                  <h2 className="text-2xl font-bold">{user.nickname}</h2>
+                </div>
+              </CardHeader>
+              <span className="font-semibold">Email:</span><div className='flex items-center'>{user.email}&nbsp;{user.email_verified ? <Verified className="h-4 w-4" /> : null}</div>
+            </CardContent>
+          </Card>
+          <SheetFooter className='flex justify-end gap-4'>
+            <a href="/api/auth/logout" className="flex grow">
+              <Button variant="outline" className='grow'>
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </a>
+          </SheetFooter>
+        </>
+      )}
+    </>
+  )
 }
 
 export function AccountBalanceTrackerComponent() {
@@ -533,6 +618,16 @@ export function AccountBalanceTrackerComponent() {
             Back
           </Button>
         )}
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className='grow sm:grow-0'>
+              <UserIcon />
+            </Button>
+          </SheetTrigger>
+          <SheetContent className='flex flex-col gap-4'>
+            <AccountSheet />
+          </SheetContent>
+        </Sheet>
       </div>
       {viewingTransactions === null ? renderMainView() : renderTransactionHistory()}
     </div>
