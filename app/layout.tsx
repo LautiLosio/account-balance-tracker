@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { UserProvider } from '@auth0/nextjs-auth0/client';
+import { UserProvider } from "@auth0/nextjs-auth0/client";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,12 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <UserProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-          >
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
             <main>{children}</main>
             <Toaster />
           </ThemeProvider>

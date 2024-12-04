@@ -1,145 +1,101 @@
-'use client'
+"use client";
 
-import { useState, useRef } from 'react'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { toast } from "sonner"
-import { ArrowLeftCircle, FileDown, FileInput, Plus, Info, History, User, Loader, LogOut, Verified } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { toast } from "sonner";
+import { FileDown, FileInput, Plus, History } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet"
-import { useUser } from '@auth0/nextjs-auth0/client'
-import Image from 'next/image'
-import Error from 'next/error'
+} from "@/components/ui/collapsible";
+import Link from "next/link";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { Redis } from "@upstash/redis";
+import { NextResponse } from "next/server";
+import { useUser } from "@auth0/nextjs-auth0/client";
+
+// Initialize Redis
+const redis = Redis.fromEnv();
+
+export async function GET() {
+  try {
+    // Set a value in Redis
+    await redis.set("test-key", "Hello from Upstash Redis!");
+
+    // Get the value from Redis
+    const result = await redis.get("test-key");
+
+    // Return the result in the response
+    return NextResponse.json({ result });
+  } catch (error) {
+    console.error("Redis operation failed:", error);
+    return NextResponse.json(
+      { error: "Failed to perform Redis operation" },
+      { status: 500 },
+    );
+  }
+}
 
 interface Account {
-  id: number
-  name: string
-  initialBalance: number
-  currentBalance: number
-  isForeignCurrency: boolean
-  transactions: Transaction[]
+  id: number;
+  name: string;
+  initialBalance: number;
+  currentBalance: number;
+  isForeignCurrency: boolean;
+  transactions: Transaction[];
 }
 
 interface Transaction {
-  id: number
-  date: Date
-  description: string
-  amount: number
-  type: 'income' | 'expense' | 'transfer'
-  fromAccount: number
-  toAccount?: number
-  exchangeRate?: number
-}
-
-export function UserIcon() {
-  const { user, error, isLoading } = useUser()
-  if (error) {
-    console.error(error)
-    return <User className="h-4 w-4" />
-  }
-  return (
-    <>
-      {/* user profile */}
-      { isLoading ? (
-        <Loader className="h-4 w-4 animate-spin" />
-      ) : (
-        user && user.picture && user.name ? <Image src={user.picture} className="h-4 w-4 rounded-full" alt={user.name} width={24} height={24} /> : <User className="h-4 w-4" />
-      )}
-    </>
-  )
-}
-  
-export function AccountSheet() {
-  const { user, error, isLoading } = useUser()
-  if (error) {
-    console.error(error)
-    return <Error statusCode={500} />
-  }
-  return (
-    <>
-      { isLoading && (
-        <div className='flex items-center justify-center h-full w-full'>
-          <Loader className="h-8 w-8 animate-spin" /> 
-        </div>
-      )}
-      { !user && !isLoading && (
-        <SheetHeader>
-          <SheetTitle>Sign-in</SheetTitle>
-          <SheetDescription className='flex flex-col gap-4'>
-            <p>Sign-in to access your account details.</p>
-
-            <p>Don&apos;t have an account? Use the button below to sign-up.</p>
-
-            {/* vercel auth0 integration */}
-            <div className="flex justify-around gap-4">
-              <a href="/api/auth/login" className="flex grow">
-                <Button variant="outline" className='grow'>
-                  <User className="h-4 w-4" />
-                  Sign-in
-                </Button>
-              </a>
-            </div>
-          </SheetDescription>
-        </SheetHeader>
-      )}
-      { user && user.email_verified && user.name && user.picture && (
-        <>
-          <SheetHeader>
-            <SheetTitle>Account Details</SheetTitle>
-          </SheetHeader>
-          <Card>
-            <CardContent>
-              <CardHeader className='px-0'>
-                <div className="flex items-center gap-4">
-                  <Image src={user.picture} className="h-12 w-12 rounded-full" alt={user.name} width={48} height={48} />
-                  <h2 className="text-2xl font-bold">{user.nickname}</h2>
-                </div>
-              </CardHeader>
-              <span className="font-semibold">Email:</span><div className='flex items-center'>{user.email}&nbsp;{user.email_verified ? <Verified className="h-4 w-4" /> : null}</div>
-            </CardContent>
-          </Card>
-          <SheetFooter className='flex justify-end gap-4'>
-            <a href="/api/auth/logout" className="flex grow">
-              <Button variant="outline" className='grow'>
-                <LogOut className="h-4 w-4" />
-                Logout
-              </Button>
-            </a>
-          </SheetFooter>
-        </>
-      )}
-    </>
-  )
+  id: number;
+  date: Date;
+  description: string;
+  amount: number;
+  type: "income" | "expense" | "transfer";
+  fromAccount: number;
+  toAccount?: number;
+  exchangeRate?: number;
 }
 
 export function AccountBalanceTrackerComponent() {
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [newAccountName, setNewAccountName] = useState('')
-  const [newAccountBalance, setNewAccountBalance] = useState('')
-  const [newAccountForeignCurrency, setNewAccountForeignCurrency] = useState(false)
-  const [selectedAccount, setSelectedAccount] = useState<number | null>(null)
-  const [transactionAmount, setTransactionAmount] = useState('')
-  const [transactionType, setTransactionType] = useState<'income' | 'expense' | 'transfer'>('income')
-  const [transferTo, setTransferTo] = useState<number | null>(null)
-  const [exchangeRate, setExchangeRate] = useState('')
-  const [viewingTransactions, setViewingTransactions] = useState<number | null>(null)
+  const { user, error, isLoading } = useUser();
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    console.log(user);
+  }, [user]);
+
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountBalance, setNewAccountBalance] = useState("");
+  const [newAccountForeignCurrency, setNewAccountForeignCurrency] =
+    useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<number | null>(null);
+  const [transactionAmount, setTransactionAmount] = useState("");
+  const [transactionType, setTransactionType] = useState<
+    "income" | "expense" | "transfer"
+  >("income");
+  const [transferTo, setTransferTo] = useState<number | null>(null);
+  const [exchangeRate, setExchangeRate] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const addAccount = () => {
     if (newAccountName && newAccountBalance) {
-      const initialBalance = parseFloat(newAccountBalance)
-      const accountId = accounts.length + 1
+      const initialBalance = parseFloat(newAccountBalance);
+      const accountId = accounts.length + 1;
       setAccounts([
         ...accounts,
         {
@@ -148,93 +104,109 @@ export function AccountBalanceTrackerComponent() {
           initialBalance: initialBalance,
           currentBalance: initialBalance,
           isForeignCurrency: newAccountForeignCurrency,
-          transactions: []
-        }
-      ])
-      toast.success('Account added successfully', {
-        description: `Account "${newAccountName}" added successfully. 
-          With ${initialBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })} initial balance.`,
+          transactions: [],
+        },
+      ]);
+      toast.success("Account added successfully", {
+        description: `Account "${newAccountName}" added successfully.
+          With ${initialBalance.toLocaleString("es-AR", { style: "currency", currency: "ARS" })} initial balance.`,
         action: {
-          label: 'Undo',
+          label: "Undo",
           onClick: () => {
-            setAccounts(prevAccounts => {
-              return prevAccounts.filter(acc => acc.id !== accountId)
-            })
-            setNewAccountName('')
-            setNewAccountBalance('')
-            setNewAccountForeignCurrency(false)
-          }
-        }
-      })
-      setNewAccountName('')
-      setNewAccountBalance('')
-      setNewAccountForeignCurrency(false)
+            setAccounts((prevAccounts) => {
+              return prevAccounts.filter((acc) => acc.id !== accountId);
+            });
+            setNewAccountName("");
+            setNewAccountBalance("");
+            setNewAccountForeignCurrency(false);
+          },
+        },
+      });
+      setNewAccountName("");
+      setNewAccountBalance("");
+      setNewAccountForeignCurrency(false);
+    } else {
+      toast.error("Please complete all fields.");
     }
-  }
+  };
 
   const handleTransaction = () => {
-    if (selectedAccount === null || !transactionAmount) return
+    if (selectedAccount === null || !transactionAmount) return;
 
-    const amount = transactionType === 'expense' ? -parseFloat(transactionAmount) : parseFloat(transactionAmount)
-    const updatedAccounts = [...accounts]
-    const transactionId = Math.max(0, ...updatedAccounts.flatMap(acc => acc.transactions.map(t => t.id))) + 1
+    const amount =
+      transactionType === "expense"
+        ? -parseFloat(transactionAmount)
+        : parseFloat(transactionAmount);
+    const updatedAccounts = [...accounts];
+    const transactionId =
+      Math.max(
+        0,
+        ...updatedAccounts.flatMap((acc) => acc.transactions.map((t) => t.id)),
+      ) + 1;
     const newTransaction: Transaction = {
       id: transactionId,
       date: new Date(),
-      description: transactionType === 'transfer' ? `Transfer` : transactionType,
+      description:
+        transactionType === "transfer" ? `Transfer` : transactionType,
       amount: amount,
       type: transactionType,
       fromAccount: selectedAccount,
-    }
+    };
 
-    if (transactionType === 'transfer' && transferTo !== null) {
-      const fromAccount = updatedAccounts.find(acc => acc.id === selectedAccount)
-      const toAccount = updatedAccounts.find(acc => acc.id === transferTo)
+    if (transactionType === "transfer" && transferTo !== null) {
+      const fromAccount = updatedAccounts.find(
+        (acc) => acc.id === selectedAccount,
+      );
+      const toAccount = updatedAccounts.find((acc) => acc.id === transferTo);
 
       if (fromAccount && toAccount) {
-        let transferAmount = amount
+        let transferAmount = amount;
         if (fromAccount.isForeignCurrency || toAccount.isForeignCurrency) {
-          const rate = parseFloat(exchangeRate)
-          transferAmount = fromAccount.isForeignCurrency ? amount * rate : amount * (1 / rate)
-          newTransaction.exchangeRate = rate
+          const rate = parseFloat(exchangeRate);
+          transferAmount = fromAccount.isForeignCurrency
+            ? amount * rate
+            : amount * (1 / rate);
+          newTransaction.exchangeRate = rate;
         }
 
-        fromAccount.currentBalance -= amount
-        toAccount.currentBalance += transferAmount
-        newTransaction.fromAccount = selectedAccount
-        newTransaction.toAccount = transferTo
-        newTransaction.description = `Transfer from ${fromAccount.name} to ${toAccount.name}`
-        fromAccount.transactions.push({ ...newTransaction, amount: -amount })
-        toAccount.transactions.push({ ...newTransaction, amount: transferAmount })
+        fromAccount.currentBalance -= amount;
+        toAccount.currentBalance += transferAmount;
+        newTransaction.fromAccount = selectedAccount;
+        newTransaction.toAccount = transferTo;
+        newTransaction.description = `Transfer from ${fromAccount.name} to ${toAccount.name}`;
+        fromAccount.transactions.push({ ...newTransaction, amount: -amount });
+        toAccount.transactions.push({
+          ...newTransaction,
+          amount: transferAmount,
+        });
       }
     } else {
-      const account = updatedAccounts.find(acc => acc.id === selectedAccount)
+      const account = updatedAccounts.find((acc) => acc.id === selectedAccount);
       if (account) {
-        account.currentBalance += amount
-        account.transactions.push(newTransaction)
+        account.currentBalance += amount;
+        account.transactions.push(newTransaction);
       }
     }
 
     toast.success(`${newTransaction.description} added successfully`, {
-      description: `Amount: ${amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`,
+      description: `Amount: ${amount.toLocaleString("es-AR", { style: "currency", currency: "ARS" })}`,
       action: {
-        label: 'X',
-        onClick: () => {
-        }
-      }
-    })
+        label: "X",
+        onClick: () => {},
+      },
+    });
 
-    setAccounts(updatedAccounts)
-    setTransactionAmount('')
-    setExchangeRate('')
-  }
+    setAccounts(updatedAccounts);
+    setTransactionAmount("");
+    setExchangeRate("");
+  };
 
   // const exportAccountCSV = (accountId: number) => {
   //   const account = accounts.find(acc => acc.id === accountId)
   //   if (!account) return
 
   //   const headers = ['Date', 'Description', 'Amount', 'Type', 'From Account', 'To Account', 'Exchange Rate']
-  //   const csvContent = account.transactions.map(t => 
+  //   const csvContent = account.transactions.map(t =>
   //     `${t.date.toISOString()},${t.description},${t.amount},${t.type},${t.fromAccount || ''},${t.toAccount || ''},${t.exchangeRate || ''}`
   //   ).join('\n')
 
@@ -243,393 +215,599 @@ export function AccountBalanceTrackerComponent() {
   // }
 
   const exportAllDataCSV = () => {
-    const accountsCSV = accounts.map(a => `${a.id},${a.name},${a.initialBalance},${a.currentBalance},${a.isForeignCurrency}`).join('\n')
-    const transactionsCSV = accounts.flatMap(a => a.transactions
-      .filter(t => t.type !== 'transfer' || t.fromAccount === a.id) // Only export transfers from the 'from' account
-      .map(t =>
-        `${t.id},${t.date.toISOString()},${t.description},${t.amount},${t.type},${t.fromAccount || ''},${t.toAccount || ''},${t.exchangeRate || ''}`
-      )).join('\n')
+    const accountsCSV = accounts
+      .map(
+        (a) =>
+          `${a.id},${a.name},${a.initialBalance},${a.currentBalance},${a.isForeignCurrency}`,
+      )
+      .join("\n");
+    const transactionsCSV = accounts
+      .flatMap((a) =>
+        a.transactions
+          .filter((t) => t.type !== "transfer" || t.fromAccount === a.id) // Only export transfers from the 'from' account
+          .map(
+            (t) =>
+              `${t.id},${t.date.toISOString()},${t.description},${t.amount},${t.type},${t.fromAccount || ""},${t.toAccount || ""},${t.exchangeRate || ""}`,
+          ),
+      )
+      .join("\n");
 
-    const csv = `Accounts\nID,Name,Initial Balance,Current Balance,IsForeignCurrency\n${accountsCSV}\n\nTransactions\nID,Date,Description,Amount,Type,FromAccount,ToAccount,ExchangeRate\n${transactionsCSV}`
-    downloadCSV(csv, 'all_accounts_data.csv')
-  }
+    const csv = `Accounts\nID,Name,Initial Balance,Current Balance,IsForeignCurrency\n${accountsCSV}\n\nTransactions\nID,Date,Description,Amount,Type,FromAccount,ToAccount,ExchangeRate\n${transactionsCSV}`;
+    downloadCSV(csv, "all_accounts_data.csv");
+  };
 
   const downloadCSV = (csv: string, filename: string) => {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob)
-      link.setAttribute('href', url)
-      link.setAttribute('download', filename)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
-  }
+  };
 
-  const importData = (event: React.ChangeEvent<HTMLInputElement>, accountId?: number) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  const importData = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    accountId?: number,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.onload = (e) => {
-      const content = e.target?.result as string
+      const content = e.target?.result as string;
       if (accountId) {
-        importAccountTransactions(content, accountId)
+        importAccountTransactions(content, accountId);
       } else {
-        importAllData(content)
+        importAllData(content);
       }
-    }
-    reader.readAsText(file)
-  }
+    };
+    reader.readAsText(file);
+  };
 
   const importAccountTransactions = (content: string, accountId: number) => {
-    const lines = content.split('\n')
-    const initialBalance = parseFloat(lines[0].split(',')[1])
-    const currentBalance = parseFloat(lines[1].split(',')[1])
-    const transactions = lines.slice(4).map(line => {
-      const values = line.split(',')
+    const lines = content.split("\n");
+    const initialBalance = parseFloat(lines[0].split(",")[1]);
+    const currentBalance = parseFloat(lines[1].split(",")[1]);
+    const transactions = lines.slice(4).map((line) => {
+      const values = line.split(",");
       return {
-        id: Math.max(0, ...accounts.flatMap(acc => acc.transactions.map(t => t.id))) + 1,
+        id:
+          Math.max(
+            0,
+            ...accounts.flatMap((acc) => acc.transactions.map((t) => t.id)),
+          ) + 1,
         date: new Date(values[0]),
         description: values[1],
         amount: parseFloat(values[2]),
-        type: values[3] as 'income' | 'expense' | 'transfer',
+        type: values[3] as "income" | "expense" | "transfer",
         fromAccount: parseInt(values[4]),
         toAccount: values[5] ? parseInt(values[5]) : undefined,
-        exchangeRate: values[6] ? parseFloat(values[6]) : undefined
-      }
-    })
+        exchangeRate: values[6] ? parseFloat(values[6]) : undefined,
+      };
+    });
 
-    setAccounts(prevAccounts => {
-      return prevAccounts.map(account => {
+    setAccounts((prevAccounts) => {
+      return prevAccounts.map((account) => {
         if (account.id === accountId) {
           return {
             ...account,
             initialBalance,
             currentBalance,
-            transactions: transactions
-          }
+            transactions: transactions,
+          };
         }
-        return account
-      })
-    })
-  }
+        return account;
+      });
+    });
+  };
 
   const importAllData = (content: string) => {
-    const [accountsSection, transactionsSection] = content.split('\n\n')
-    const accountLines = accountsSection.split('\n').slice(2)
-    const transactionLines = transactionsSection.split('\n').slice(2)
+    const [accountsSection, transactionsSection] = content.split("\n\n");
+    const accountLines = accountsSection.split("\n").slice(2);
+    const transactionLines = transactionsSection.split("\n").slice(2);
 
-    const importedAccounts = accountLines.map(line => {
-      const [id, name, initialBalance, currentBalance, isForeignCurrency] = line.split(',')
+    const importedAccounts = accountLines.map((line) => {
+      const [id, name, initialBalance, currentBalance, isForeignCurrency] =
+        line.split(",");
       return {
         id: parseInt(id),
         name,
         initialBalance: parseFloat(initialBalance),
         currentBalance: parseFloat(currentBalance),
-        isForeignCurrency: isForeignCurrency === 'true',
-        transactions: [] as Transaction[]
-      }
-    })
+        isForeignCurrency: isForeignCurrency === "true",
+        transactions: [] as Transaction[],
+      };
+    });
 
-    const transactions: Transaction[] = transactionLines.map(line => {
-      const [id, date, description, amount, type, fromAccount, toAccount, exchangeRate] = line.split(',')
+    const transactions: Transaction[] = transactionLines.map((line) => {
+      const [
+        id,
+        date,
+        description,
+        amount,
+        type,
+        fromAccount,
+        toAccount,
+        exchangeRate,
+      ] = line.split(",");
       return {
         id: parseInt(id),
         date: new Date(date),
         description,
         amount: parseFloat(amount),
-        type: type as 'income' | 'expense' | 'transfer',
+        type: type as "income" | "expense" | "transfer",
         fromAccount: parseInt(fromAccount),
         toAccount: toAccount ? parseInt(toAccount) : undefined,
-        exchangeRate: exchangeRate ? parseFloat(exchangeRate) : undefined
-      }
-    })
+        exchangeRate: exchangeRate ? parseFloat(exchangeRate) : undefined,
+      };
+    });
 
-    transactions.forEach(transaction => {
-      if (transaction.type === 'transfer' && transaction.fromAccount && transaction.toAccount) {
-        const fromAccount = importedAccounts.find(a => a.id === transaction.fromAccount)
-        const toAccount = importedAccounts.find(a => a.id === transaction.toAccount)
+    transactions.forEach((transaction) => {
+      if (
+        transaction.type === "transfer" &&
+        transaction.fromAccount &&
+        transaction.toAccount
+      ) {
+        const fromAccount = importedAccounts.find(
+          (a) => a.id === transaction.fromAccount,
+        );
+        const toAccount = importedAccounts.find(
+          (a) => a.id === transaction.toAccount,
+        );
         if (fromAccount && toAccount) {
-          fromAccount.transactions.push({ ...transaction, amount: transaction.amount })
-          toAccount.transactions.push({ ...transaction, amount: transaction.exchangeRate ? -transaction.amount * (1 / transaction.exchangeRate) : -transaction.amount })
+          fromAccount.transactions.push({
+            ...transaction,
+            amount: transaction.amount,
+          });
+          toAccount.transactions.push({
+            ...transaction,
+            amount: transaction.exchangeRate
+              ? -transaction.amount * (1 / transaction.exchangeRate)
+              : -transaction.amount,
+          });
         }
       } else {
-        const account = importedAccounts.find(a => a.id === (transaction.fromAccount || transaction.toAccount))
+        const account = importedAccounts.find(
+          (a) => a.id === (transaction.fromAccount || transaction.toAccount),
+        );
         if (account) {
-          account.transactions.push(transaction)
+          account.transactions.push(transaction);
         }
       }
-    })
+    });
 
-    setAccounts(importedAccounts)
-  }
+    setAccounts(importedAccounts);
+  };
+
+  const customGradientBackground = (seed: string): string => {
+    // FNV-1a hash function
+    const fnv1a = (str: string): number => {
+      let hash = 2166136261;
+      for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash +=
+          (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+      }
+      return hash >>> 0;
+    };
+
+    // Convert the hash to a brighter HSL color
+    const intToBrightHSL = (num: number): string => {
+      // Ensure the hue is completely random (but seed-based) and the saturation and lightness are high
+      const h = num % 360;
+      const s = 80 + (num % 20);
+      const v = 70 + (num % 30);
+      return `hsl(${h}, ${s}%, ${v}%)`;
+    };
+
+    // Generate base color from the seed
+    const baseColor = intToBrightHSL(fnv1a(seed));
+
+    // Generate a second color with a larger variation to make the gradient more visible
+    const variationOffset = 30; // Increase to make the gradient more distinct
+    const adjustedHash = fnv1a(seed) + variationOffset;
+    const distinctColor = intToBrightHSL(adjustedHash);
+
+    // Create a linear gradient background with two distinct colors
+    return `linear-gradient(135deg, ${baseColor}, ${distinctColor})`;
+  };
 
   // const addNewAccountForm = () => (
 
   const renderMainView = () => (
     <>
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle className="flex justify-between items-center">
-            Total balance: <span className="font-semibold">{accounts.reduce((acc, curr) => acc + curr.currentBalance, 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</span>
-          </CardTitle>
-        </CardHeader>
-        {accounts.length === 0 && (<CardContent className='text-muted-foreground'>Add a new account to get started.</CardContent>)}
-        {accounts.length > 0 && (
-          <CardContent className="flex flex-col gap-4">
-            <span className="flex flex-wrap gap-4">
-              {accounts.map(account => (
-                <Card key={account.id} className="grow animate-in slide-in-from-top-4 relative overflow-hidden"
-                  style={{ background: `url(https://api.dicebear.com/9.x/glass/svg?seed=${account.name.replace(' ', '')}) no-repeat center/cover`, }}>
-                  <CardHeader>
-                    <CardTitle className='flex justify-between items-center gap-2 text-black '>
-                      <p>{account.name}</p>
-                      <Badge variant={account.isForeignCurrency ? 'default' : 'secondary'}>
-                        {account.isForeignCurrency ? 'Foreign' : 'Local'}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-4 text-black">
-                    <div className='flex justify-between items-center gap-2'>
-                      <h2 className="text-2xl font-bold">
-                        {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                      </h2>
-                      <Button variant="ghost" className='self-end' size="sm" onClick={() => setViewingTransactions(account.id)}>
-                        <History className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </span>
-            {/* <Button variant="outline" onClick={() => console.log('add account')}>
-              <Plus className="h-4 w-4" />
-              Add new account
-            </Button> */}
-          </CardContent>
-        )}
-      </Card>
-
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle>New Transaction</CardTitle>
-        </CardHeader>
-        {accounts.length === 0 && (<CardContent className='text-muted-foreground'>Add a new account to get started.</CardContent>)}
-        {accounts.length > 0 && (
-          <CardContent>
-            <div className="flex flex-col gap-4">
-              {/* <Select onValueChange={(value) => setSelectedAccount(parseInt(value))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map(account => (
-                    <SelectItem key={account.id} value={account.id.toString()}>{account.name}: {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select> */}
-
-              {/* native select */}
-
-              <select className="w-full rounded-md border p-2 bg-background" onChange={(e) => setSelectedAccount(parseInt(e.target.value))}>
-                <option value="" selected disabled>Select Account</option>
-                {accounts.map(account => (
-                  <option key={account.id} value={account.id}>{account.name}: {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</option>
-                ))}
-              </select>
-
-
-              <ToggleGroup className="flex-1" type="single" variant="outline"
-                onValueChange={(value) => setTransactionType(value as 'income' | 'expense' | 'transfer')}>
-                <ToggleGroupItem className="flex-1" value="expense">Expense</ToggleGroupItem>
-                <ToggleGroupItem className="flex-1" value="income">Income</ToggleGroupItem>
-                { accounts.length > 1 && (<ToggleGroupItem className="flex-1" value="transfer">Transfer</ToggleGroupItem>)}
-              </ToggleGroup>
-              
-              {transactionType === 'transfer' && (
-                <Select onValueChange={(value) => setTransferTo(parseInt(value))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Transfer To" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.filter(account => account.id !== selectedAccount).map(account => (
-                      <SelectItem key={account.id} value={account.id.toString()}>{account.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              <Input
-                type="number"
-                placeholder="Amount"
-                value={transactionAmount}
-                disabled={!selectedAccount}
-                min={0}
-                max={ selectedAccount ? accounts.find(acc => acc.id === selectedAccount)?.currentBalance : 0 }
-                onChange={(e) => setTransactionAmount(e.target.value)}
-              />
-              
-              {transactionType === 'transfer' &&
-                ((selectedAccount !== null && accounts.find(acc => acc.id === selectedAccount)?.isForeignCurrency) ||
-                  (transferTo !== null && accounts.find(acc => acc.id === transferTo)?.isForeignCurrency)) && (
-                  <Input
-                    type="number"
-                    placeholder="Exchange Rate"
-                    value={exchangeRate}
-                    onChange={(e) => setExchangeRate(e.target.value)}
-                  />
-                )}
-              <Button disabled={!selectedAccount || !transactionAmount} onClick={handleTransaction}>Submit Transaction</Button>
-            </div>
-          </CardContent>
-        )}
-      </Card>
-
-      <Card>
-        <Collapsible className='flex flex-col'>
-          <CollapsibleTrigger className="flex flex-1">
-            <CardHeader className='flex-1'>
-              <CardTitle className="flex flex-1 justify-between items-center gap-2">
-                Add New Account
-                <Plus className="h-6 w-6" />
-              </CardTitle>
-            </CardHeader>
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            <CardContent>
-              <div className="flex flex-col gap-4">
-                <Input
-                  placeholder="Account Name"
-                  value={newAccountName}
-                  onChange={(e) => setNewAccountName(e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Initial Balance"
-                  value={newAccountBalance}
-                  onChange={(e) => setNewAccountBalance(e.target.value)}
-                />
-                <div className="flex items-center gap-4">
-                  <Switch
-                    id="foreign-currency"
-                    checked={newAccountForeignCurrency}
-                    onCheckedChange={setNewAccountForeignCurrency}
-                  />
-                  <Label htmlFor="foreign-currency">Foreign Currency</Label>
-                </div>
-                <Button onClick={addAccount}>Add Account</Button>
-              </div>
-            </CardContent>
-          </CollapsibleContent>
-        </Collapsible>
-      </Card>
-    </>
-  )
-
-  const renderTransactionHistory = () => {
-    const account = accounts.find(acc => acc.id === viewingTransactions)
-    if (!account) return null
-
-    return (
-      <>
-        <Card className='mb-4'>
-          <Collapsible className='flex flex-col'>
-            <CollapsibleTrigger className="flex flex-1">
-              <CardHeader className='flex-1'>
-                <CardTitle className='flex flex-1 justify-between items-center gap-2'>
-                  Account Details
-                  <Info className="h-6 w-6" />
-                </CardTitle>
-              </CardHeader>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <CardContent>
-                <ul className="grid grid-cols-2 flex-wrap gap-4">
-                  <li><span className="font-semibold">ID:</span> {account.id}</li>
-                  <li><span className="font-semibold">Name:</span> {account.name}</li>
-                  <li><span className="font-semibold">Initial Balance:</span> {account.initialBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</li>
-                  <li><span className="font-semibold">Currency:</span> {account.isForeignCurrency ? 'Foreign' : 'Local'}</li>
-                  <li><span className="font-semibold">Current Balance:</span> {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</li>
-                  <li><span className="font-semibold">Number of Transactions:</span> {account.transactions.length}</li>
-                </ul>
-              </CardContent>
-            </CollapsibleContent>
-          </Collapsible>
-        </Card>
+      {isLoading && (
+        // center the spinner
+        <div className="h-96">
+          <LoadingSpinner />
+        </div>
+      )}
+      {!isLoading && error && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex justify-between items-center">
-              <span>Transactions</span>
-            </CardTitle>
+            <CardTitle>Error</CardTitle>
           </CardHeader>
-          { account.transactions.length === 0 && (<CardContent className='text-muted-foreground'>No transactions yet.</CardContent>)}
-          { account.transactions.length > 0 && (
-            <CardContent>
-              <div className="space-y-2">
-                {account.transactions.map(transaction => (
-                  <div key={transaction.id} className="flex justify-between items-center p-2 gap-2 border-b last:border-b-0">
-                    <div>
-                      <div className="font-semibold capitalize">{transaction.description}</div>
-                      <div className="text-sm text-gray-500">{transaction.date.toLocaleString('es-AR')}</div>
-                    </div>
-                    <div className={`font-semibold ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {transaction.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          )}
+          <CardContent>
+            <p className="text-muted-foreground mb-4">{error?.message}</p>
+          </CardContent>
         </Card>
-      </>
-    )
-  }
+      )}
+      {!isLoading && (
+        <>
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                Total balance:{" "}
+                <span className="font-semibold">
+                  {accounts
+                    .reduce((acc, curr) => acc + curr.currentBalance, 0)
+                    .toLocaleString("es-AR", {
+                      style: "currency",
+                      currency: "ARS",
+                    })}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            {accounts.length === 0 && (
+              <CardContent className="text-muted-foreground">
+                Add a new account to get started.
+              </CardContent>
+            )}
+            {accounts.length > 0 && (
+              <CardContent className="flex flex-col gap-4">
+                <span className="flex flex-wrap gap-4">
+                  {accounts.map((account) => (
+                    <Card
+                      key={account.id}
+                      className="grow animate-in slide-in-from-top-4 relative overflow-hidden"
+                      style={{
+                        background: customGradientBackground(account.name),
+                      }}
+                    >
+                      <CardHeader>
+                        <CardTitle className="flex justify-between items-center gap-2 text-black ">
+                          <p>{account.name}</p>
+                          <Badge
+                            variant={
+                              account.isForeignCurrency
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {account.isForeignCurrency ? "Foreign" : "Local"}
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex flex-col gap-4 text-black">
+                        <div className="flex justify-between items-center gap-2">
+                          <h2 className="text-2xl font-bold">
+                            {account.currentBalance.toLocaleString("es-AR", {
+                              style: "currency",
+                              currency: "ARS",
+                            })}
+                          </h2>
+                          <Link href={`/transactions/${account.id}`}>
+                            <Button variant="ghost" size="sm">
+                              <History className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </span>
+                {/* <Button variant="outline" onClick={() => console.log('add account')}>
+                <Plus className="h-4 w-4" />
+                Add new account
+              </Button> */}
+              </CardContent>
+            )}
+          </Card>
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>New Transaction</CardTitle>
+            </CardHeader>
+            {accounts.length === 0 && (
+              <CardContent className="text-muted-foreground">
+                Add a new account to get started.
+              </CardContent>
+            )}
+            {accounts.length > 0 && (
+              <CardContent>
+                <div className="flex flex-col gap-4">
+                  {/* <Select onValueChange={(value) => setSelectedAccount(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map(account => (
+                      <SelectItem key={account.id} value={account.id.toString()}>{account.name}: {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select> */}
 
-  return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-wrap gap-4 justify-between sm:items-center mb-4 p-1">
-        <h1 className="text-2xl font-bold">Account Tracker</h1>
-        {!viewingTransactions && (
+                  {/* native select */}
+
+                  <select
+                    className="w-full rounded-md border p-2 bg-background"
+                    onChange={(e) =>
+                      setSelectedAccount(parseInt(e.target.value))
+                    }
+                  >
+                    <option value="" selected disabled>
+                      Select Account
+                    </option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}:{" "}
+                        {account.currentBalance.toLocaleString("es-AR", {
+                          style: "currency",
+                          currency: "ARS",
+                        })}
+                      </option>
+                    ))}
+                  </select>
+
+                  <ToggleGroup
+                    className="flex-1"
+                    type="single"
+                    variant="outline"
+                    onValueChange={(value) =>
+                      setTransactionType(
+                        value as "income" | "expense" | "transfer",
+                      )
+                    }
+                  >
+                    <ToggleGroupItem className="flex-1" value="expense">
+                      Expense
+                    </ToggleGroupItem>
+                    <ToggleGroupItem className="flex-1" value="income">
+                      Income
+                    </ToggleGroupItem>
+                    {accounts.length > 1 && (
+                      <ToggleGroupItem className="flex-1" value="transfer">
+                        Transfer
+                      </ToggleGroupItem>
+                    )}
+                  </ToggleGroup>
+
+                  {transactionType === "transfer" && (
+                    <Select
+                      onValueChange={(value) => setTransferTo(parseInt(value))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Transfer To" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts
+                          .filter((account) => account.id !== selectedAccount)
+                          .map((account) => (
+                            <SelectItem
+                              key={account.id}
+                              value={account.id.toString()}
+                            >
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  <Input
+                    type="number"
+                    placeholder="Amount"
+                    value={transactionAmount}
+                    disabled={!selectedAccount}
+                    min={0}
+                    max={
+                      selectedAccount
+                        ? accounts.find((acc) => acc.id === selectedAccount)
+                            ?.currentBalance
+                        : 0
+                    }
+                    onChange={(e) => setTransactionAmount(e.target.value)}
+                  />
+
+                  {transactionType === "transfer" &&
+                    ((selectedAccount !== null &&
+                      accounts.find((acc) => acc.id === selectedAccount)
+                        ?.isForeignCurrency) ||
+                      (transferTo !== null &&
+                        accounts.find((acc) => acc.id === transferTo)
+                          ?.isForeignCurrency)) && (
+                      <Input
+                        type="number"
+                        placeholder="Exchange Rate"
+                        value={exchangeRate}
+                        onChange={(e) => setExchangeRate(e.target.value)}
+                      />
+                    )}
+                  <Button
+                    disabled={!selectedAccount || !transactionAmount}
+                    onClick={handleTransaction}
+                  >
+                    Submit Transaction
+                  </Button>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
+          <Card className="mb-4">
+            <Collapsible className="flex flex-col">
+              <CollapsibleTrigger className="flex flex-1">
+                <CardHeader className="flex-1">
+                  <CardTitle className="flex flex-1 justify-between items-center gap-2">
+                    Add New Account
+                    <Plus className="h-6 w-6" />
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent>
+                <CardContent>
+                  <div className="flex flex-col gap-4">
+                    <Input
+                      placeholder="Account Name"
+                      value={newAccountName}
+                      onChange={(e) => setNewAccountName(e.target.value)}
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Initial Balance"
+                      value={newAccountBalance}
+                      onChange={(e) => setNewAccountBalance(e.target.value)}
+                    />
+                    <div className="flex items-center gap-4">
+                      <Switch
+                        id="foreign-currency"
+                        checked={newAccountForeignCurrency}
+                        onCheckedChange={setNewAccountForeignCurrency}
+                      />
+                      <Label htmlFor="foreign-currency">Foreign Currency</Label>
+                    </div>
+                    <Button onClick={addAccount}>Add Account</Button>
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Collapsible>
+          </Card>
+
           <div className="flex grow justify-end gap-4">
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className='grow sm:grow-0'>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              className="grow sm:grow-0"
+            >
               <FileInput className="h-4 w-4" />
               Import
             </Button>
             <input
               type="file"
               ref={fileInputRef}
-              style={{ display: 'none' }}
+              style={{ display: "none" }}
               onChange={(e) => importData(e)}
               accept=".csv"
             />
-            <Button variant="outline" size="sm" onClick={exportAllDataCSV} className='grow sm:grow-0'>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportAllDataCSV}
+              className="grow sm:grow-0"
+            >
               <FileDown className="h-4 w-4" />
               Export
             </Button>
           </div>
-        )}
-        {viewingTransactions && (
-          <Button variant="outline" size="sm" onClick={() => setViewingTransactions(null)}>
-            <ArrowLeftCircle className="h-4 w-4" />
-            Back
-          </Button>
-        )}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className='grow sm:grow-0'>
-              <UserIcon />
-            </Button>
-          </SheetTrigger>
-          <SheetContent className='flex flex-col gap-4'>
-            <AccountSheet />
-          </SheetContent>
-        </Sheet>
-      </div>
-      {viewingTransactions === null ? renderMainView() : renderTransactionHistory()}
-    </div>
-  )
+        </>
+      )}
+    </>
+  );
+
+  // const renderTransactionHistory = () => {
+  //   const account = accounts.find((acc) => acc.id === viewingTransactions);
+  //   if (!account) return null;
+
+  //   return (
+  //     <>
+  //       <Card className="mb-4">
+  //         <Collapsible className="flex flex-col">
+  //           <CollapsibleTrigger className="flex flex-1">
+  //             <CardHeader className="flex-1">
+  //               <CardTitle className="flex flex-1 justify-between items-center gap-2">
+  //                 Account Details
+  //                 <Info className="h-6 w-6" />
+  //               </CardTitle>
+  //             </CardHeader>
+  //           </CollapsibleTrigger>
+  //           <CollapsibleContent>
+  //             <CardContent>
+  //               <ul className="grid grid-cols-2 flex-wrap gap-4">
+  //                 <li>
+  //                   <span className="font-semibold">ID:</span> {account.id}
+  //                 </li>
+  //                 <li>
+  //                   <span className="font-semibold">Name:</span> {account.name}
+  //                 </li>
+  //                 <li>
+  //                   <span className="font-semibold">Initial Balance:</span>{" "}
+  //                   {account.initialBalance.toLocaleString("es-AR", {
+  //                     style: "currency",
+  //                     currency: "ARS",
+  //                   })}
+  //                 </li>
+  //                 <li>
+  //                   <span className="font-semibold">Currency:</span>{" "}
+  //                   {account.isForeignCurrency ? "Foreign" : "Local"}
+  //                 </li>
+  //                 <li>
+  //                   <span className="font-semibold">Current Balance:</span>{" "}
+  //                   {account.currentBalance.toLocaleString("es-AR", {
+  //                     style: "currency",
+  //                     currency: "ARS",
+  //                   })}
+  //                 </li>
+  //                 <li>
+  //                   <span className="font-semibold">
+  //                     Number of Transactions:
+  //                   </span>{" "}
+  //                   {account.transactions.length}
+  //                 </li>
+  //               </ul>
+  //             </CardContent>
+  //           </CollapsibleContent>
+  //         </Collapsible>
+  //       </Card>
+  //       <Card>
+  //         <CardHeader>
+  //           <CardTitle className="flex justify-between items-center">
+  //             <span>Transactions</span>
+  //           </CardTitle>
+  //         </CardHeader>
+  //         {account.transactions.length === 0 && (
+  //           <CardContent className="text-muted-foreground">
+  //             No transactions yet.
+  //           </CardContent>
+  //         )}
+  //         {account.transactions.length > 0 && (
+  //           <CardContent>
+  //             <div className="space-y-2">
+  //               {account.transactions.map((transaction) => (
+  //                 <div
+  //                   key={transaction.id}
+  //                   className="flex justify-between items-center p-2 gap-2 border-b last:border-b-0"
+  //                 >
+  //                   <div>
+  //                     <div className="font-semibold capitalize">
+  //                       {transaction.description}
+  //                     </div>
+  //                     <div className="text-sm text-gray-500">
+  //                       {transaction.date.toLocaleString("es-AR")}
+  //                     </div>
+  //                   </div>
+  //                   <div
+  //                     className={`font-semibold ${transaction.amount >= 0 ? "text-green-600" : "text-red-600"}`}
+  //                   >
+  //                     {transaction.amount.toLocaleString("es-AR", {
+  //                       style: "currency",
+  //                       currency: "ARS",
+  //                     })}
+  //                   </div>
+  //                 </div>
+  //               ))}
+  //             </div>
+  //           </CardContent>
+  //         )}
+  //       </Card>
+  //     </>
+  //   );
+  // };
+
+  return <>{renderMainView()}</>;
 }
