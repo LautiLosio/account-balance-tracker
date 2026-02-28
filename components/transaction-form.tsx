@@ -13,19 +13,19 @@ interface TransactionFormProps {
   user: UserProfile | undefined
   accounts: Account[]
   onAddTransaction: (
-    selectedAccount: number,
+    selectedAccount: string,
     amount: number,
     type: 'income' | 'expense' | 'transfer',
-    transferTo?: number,
+    transferTo?: string,
     exchangeRate?: number
   ) => void
 }
 
 export function TransactionForm({ user, accounts, onAddTransaction }: TransactionFormProps) {
-  const [selectedAccount, setSelectedAccount] = useState<number | null>(null)
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [transactionAmount, setTransactionAmount] = useState('')
   const [transactionType, setTransactionType] = useState<'income' | 'expense' | 'transfer'>('income')
-  const [transferTo, setTransferTo] = useState<number | null>(null)
+  const [transferTo, setTransferTo] = useState<string | null>(null)
   const [exchangeRate, setExchangeRate] = useState('')
 
   const handleSubmit = () => {
@@ -37,7 +37,6 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
         transferTo || undefined,
         exchangeRate ? parseFloat(exchangeRate) : undefined
       )
-      // Reset form
       setTransactionAmount('')
       setExchangeRate('')
     }
@@ -57,22 +56,22 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
       {user && accounts.length > 0 && (
         <CardContent>
           <div className="flex flex-col gap-4">
-            <Select onValueChange={(value) => setSelectedAccount(parseInt(value))}>
+            <Select onValueChange={setSelectedAccount}>
               <SelectTrigger>
                 <SelectValue placeholder="Select Account" />
               </SelectTrigger>
               <SelectContent>
                 {accounts.map(account => (
-                  <SelectItem key={account.id} value={account.id.toString()}>
+                  <SelectItem key={account.id} value={account.id}>
                     {account.name}: {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <ToggleGroup 
-              className="flex-1" 
-              type="single" 
+            <ToggleGroup
+              className="flex-1"
+              type="single"
               variant="outline"
               value={transactionType}
               onValueChange={(value) => setTransactionType(value as 'income' | 'expense' | 'transfer')}
@@ -103,15 +102,15 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
                 </ToggleGroupItem>
               )}
             </ToggleGroup>
-            
+
             {transactionType === 'transfer' && (
-              <Select onValueChange={(value) => setTransferTo(parseInt(value))}>
+              <Select onValueChange={setTransferTo}>
                 <SelectTrigger>
                   <SelectValue placeholder="Transfer To" />
                 </SelectTrigger>
                 <SelectContent>
                   {accounts.filter(account => account.id !== selectedAccount).map(account => (
-                    <SelectItem key={account.id} value={account.id.toString()}>{account.name}</SelectItem>
+                    <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -126,7 +125,7 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
               max={selectedAccount ? accounts.find(acc => acc.id === selectedAccount)?.currentBalance : 0}
               onChange={(e) => setTransactionAmount(e.target.value)}
             />
-            
+
             {needsExchangeRate && (
               <Input
                 type="number"
@@ -135,7 +134,7 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
                 onChange={(e) => setExchangeRate(e.target.value)}
               />
             )}
-            
+
             <Button disabled={!selectedAccount || !transactionAmount} onClick={handleSubmit}>
               Submit Transaction
             </Button>

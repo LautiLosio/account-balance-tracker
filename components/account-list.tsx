@@ -10,7 +10,7 @@ import { UserProfile } from '@auth0/nextjs-auth0/client'
 interface AccountListProps {
   user: UserProfile | undefined
   accounts: Account[]
-  onViewTransactions: (accountId: number) => void
+  onViewTransactions: (accountId: string) => void
 }
 
 export function AccountList({ user, accounts, onViewTransactions }: AccountListProps) {
