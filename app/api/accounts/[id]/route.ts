@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@auth0/nextjs-auth0';
 import { getAccount, saveAccount, deleteAccount } from '@/lib/db';
 import { Account } from '@/types/schema';
+import { validateServerEnv } from '@/lib/env';
+
+validateServerEnv();
 
 // GET handler to fetch a specific account
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
