@@ -1,5 +1,6 @@
 import { kv } from '@vercel/kv';
 import { Account, Transaction } from '@/types/schema';
+import { buildTransferEntries, toCanonicalAmount } from '@/lib/transactions';
 
 // User accounts operations
 export async function getUserAccounts(userId: string): Promise<Account[]> {
@@ -37,13 +38,13 @@ export async function saveAccount(userId: string, account: Account): Promise<boo
   try {
     const accounts = await getUserAccounts(userId);
     const existingIndex = accounts.findIndex(a => a.id === account.id);
-    
+
     if (existingIndex >= 0) {
       accounts[existingIndex] = account;
     } else {
       accounts.push(account);
     }
-    
+
     return await saveUserAccounts(userId, accounts);
   } catch (error) {
     console.error('Error saving account:', error);
@@ -55,11 +56,11 @@ export async function deleteAccount(userId: string, accountId: number): Promise<
   try {
     const accounts = await getUserAccounts(userId);
     const updatedAccounts = accounts.filter(account => account.id !== accountId);
-    
+
     if (accounts.length === updatedAccounts.length) {
       return false; // No account was deleted
     }
-    
+
     return await saveUserAccounts(userId, updatedAccounts);
   } catch (error) {
     console.error('Error deleting account:', error);
@@ -72,16 +73,14 @@ export async function addTransaction(userId: string, accountId: number, transact
   try {
     const account = await getAccount(userId, accountId);
     if (!account) return false;
-    
-    account.transactions.push(transaction);
-    
-    // Update account balance
+
     if (transaction.type === 'income' || transaction.type === 'expense') {
-      // For both income and expense, we directly add the amount to the balance
-      // Income amounts are positive, expense amounts are negative
+      transaction.amount = toCanonicalAmount(transaction.type, transaction.amount);
       account.currentBalance += transaction.amount;
     }
-    
+
+    account.transactions.push(transaction);
+
     return await saveAccount(userId, account);
   } catch (error) {
     console.error('Error adding transaction:', error);
@@ -90,63 +89,40 @@ export async function addTransaction(userId: string, accountId: number, transact
 }
 
 export async function addTransferTransaction(
-  userId: string, 
-  fromAccountId: number, 
-  toAccountId: number, 
+  userId: string,
+  fromAccountId: number,
+  toAccountId: number,
   amount: number,
   exchangeRate?: number
 ): Promise<boolean> {
   try {
     const fromAccount = await getAccount(userId, fromAccountId);
     const toAccount = await getAccount(userId, toAccountId);
-    
+
     if (!fromAccount || !toAccount) return false;
-    
-    // Create a unique transaction ID
-    const transactionId = Date.now();
-    
-    // Calculate transfer amount with exchange rate if applicable
-    let toAmount = amount;
-    if (exchangeRate && (fromAccount.isForeignCurrency || toAccount.isForeignCurrency)) {
-      toAmount = fromAccount.isForeignCurrency ? amount * exchangeRate : amount / exchangeRate;
-    }
-    
-    // Create transaction for source account
-    const fromTransaction: Transaction = {
-      id: transactionId,
+
+    const { fromEntry, toEntry } = buildTransferEntries({
+      id: Date.now(),
       date: new Date(),
-      description: `Transfer to ${toAccount.name}`,
-      amount: amount,
-      type: 'transfer',
-      fromAccount: fromAccountId,
-      toAccount: toAccountId,
-      exchangeRate
-    };
-    
-    // Create transaction for destination account
-    const toTransaction: Transaction = {
-      id: transactionId,
-      date: new Date(),
-      description: `Transfer from ${fromAccount.name}`,
-      amount: toAmount,
-      type: 'transfer',
-      fromAccount: fromAccountId,
-      toAccount: toAccountId,
-      exchangeRate
-    };
-    
-    // Update balances
-    fromAccount.currentBalance -= amount;
-    toAccount.currentBalance += toAmount;
-    
-    // Add transactions to accounts
-    fromAccount.transactions.push(fromTransaction);
-    toAccount.transactions.push(toTransaction);
-    
-    // Save both accounts
+      fromAccountId,
+      toAccountId,
+      fromAccountName: fromAccount.name,
+      toAccountName: toAccount.name,
+      sourceAmount: amount,
+      fromAccountIsForeign: fromAccount.isForeignCurrency,
+      toAccountIsForeign: toAccount.isForeignCurrency,
+      exchangeRate,
+    });
+
+    fromAccount.currentBalance += fromEntry.amount;
+    toAccount.currentBalance += toEntry.amount;
+
+    fromAccount.transactions.push(fromEntry);
+    toAccount.transactions.push(toEntry);
+
     const fromSaved = await saveAccount(userId, fromAccount);
     const toSaved = await saveAccount(userId, toAccount);
-    
+
     return fromSaved && toSaved;
   } catch (error) {
     console.error('Error adding transfer transaction:', error);
