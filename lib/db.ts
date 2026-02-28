@@ -1,5 +1,6 @@
 import { kv } from '@vercel/kv';
 import { Account, Transaction } from '@/types/schema';
+import { buildTransferEntries, toCanonicalAmount } from '@/lib/transactions';
 
 type AccountMeta = Omit<Account, 'transactions'>;
 
@@ -19,7 +20,7 @@ function toAccountMeta(account: Account): AccountMeta {
     name: account.name,
     initialBalance: account.initialBalance,
     currentBalance: account.currentBalance,
-    isForeignCurrency: account.isForeignCurrency
+    isForeignCurrency: account.isForeignCurrency,
   };
 }
 
@@ -75,7 +76,7 @@ export async function getUserAccounts(userId: string): Promise<Account[]> {
       sortedIds.map(async (accountId) => {
         const [meta, transactions] = await Promise.all([
           getAccountMeta(userId, accountId),
-          getAccountTransactions(userId, accountId)
+          getAccountTransactions(userId, accountId),
         ]);
 
         if (!meta) {
@@ -84,7 +85,7 @@ export async function getUserAccounts(userId: string): Promise<Account[]> {
 
         return {
           ...meta,
-          transactions
+          transactions,
         } satisfies Account;
       })
     );
@@ -101,7 +102,7 @@ export async function getAccount(userId: string, accountId: number): Promise<Acc
   try {
     const [meta, transactions] = await Promise.all([
       getAccountMeta(userId, accountId),
-      getAccountTransactions(userId, accountId)
+      getAccountTransactions(userId, accountId),
     ]);
 
     if (!meta) {
@@ -110,7 +111,7 @@ export async function getAccount(userId: string, accountId: number): Promise<Acc
 
     return {
       ...meta,
-      transactions
+      transactions,
     };
   } catch (error) {
     console.error('Error fetching account:', error);
@@ -183,16 +184,22 @@ export async function appendTransaction(userId: string, accountId: number, trans
       return false;
     }
 
-    const balanceDelta = transaction.type === 'transfer' ? 0 : transaction.amount;
+    const canonicalAmount =
+      transaction.type === 'income' || transaction.type === 'expense'
+        ? toCanonicalAmount(transaction.type, transaction.amount)
+        : transaction.amount;
+
+    const balanceDelta = transaction.type === 'transfer' ? 0 : canonicalAmount;
     const updatedMeta: AccountMeta = {
       ...accountMeta,
-      currentBalance: accountMeta.currentBalance + balanceDelta
+      currentBalance: accountMeta.currentBalance + balanceDelta,
     };
 
     const normalizedTransaction: Transaction = {
       ...transaction,
+      amount: canonicalAmount,
       date: new Date(transaction.date),
-      fromAccount: transaction.fromAccount ?? accountId
+      fromAccount: transaction.fromAccount ?? accountId,
     };
 
     const pipeline = kv.multi();
@@ -217,56 +224,42 @@ export async function transferBetweenAccounts(
   try {
     const [fromAccount, toAccount] = await Promise.all([
       getAccountMeta(userId, fromAccountId),
-      getAccountMeta(userId, toAccountId)
+      getAccountMeta(userId, toAccountId),
     ]);
 
     if (!fromAccount || !toAccount) {
       return { success: false, error: 'ACCOUNT_NOT_FOUND' };
     }
 
-    if (fromAccount.currentBalance < amount) {
+    const normalizedAmount = Math.abs(amount);
+    if (fromAccount.currentBalance < normalizedAmount) {
       return { success: false, error: 'INSUFFICIENT_FUNDS' };
     }
 
-    const transactionId = Date.now();
-    const conversionRate = exchangeRate ?? 1;
-    const toAmount = (fromAccount.isForeignCurrency || toAccount.isForeignCurrency)
-      ? (fromAccount.isForeignCurrency ? amount * conversionRate : amount / conversionRate)
-      : amount;
-
-    const fromTransaction: Transaction = {
-      id: transactionId,
+    const { fromEntry, toEntry } = buildTransferEntries({
+      id: Date.now(),
       date: new Date(),
-      description: `Transfer to ${toAccount.name}`,
-      amount: -amount,
-      type: 'transfer',
-      fromAccount: fromAccountId,
-      toAccount: toAccountId,
-      exchangeRate
-    };
-
-    const toTransaction: Transaction = {
-      id: transactionId,
-      date: new Date(),
-      description: `Transfer from ${fromAccount.name}`,
-      amount: toAmount,
-      type: 'transfer',
-      fromAccount: fromAccountId,
-      toAccount: toAccountId,
-      exchangeRate
-    };
+      fromAccountId,
+      toAccountId,
+      fromAccountName: fromAccount.name,
+      toAccountName: toAccount.name,
+      sourceAmount: normalizedAmount,
+      fromAccountIsForeign: fromAccount.isForeignCurrency,
+      toAccountIsForeign: toAccount.isForeignCurrency,
+      exchangeRate,
+    });
 
     const pipeline = kv.multi();
     pipeline.set(userAccountMetaKey(userId, fromAccountId), {
       ...fromAccount,
-      currentBalance: fromAccount.currentBalance - amount
+      currentBalance: fromAccount.currentBalance + fromEntry.amount,
     });
     pipeline.set(userAccountMetaKey(userId, toAccountId), {
       ...toAccount,
-      currentBalance: toAccount.currentBalance + toAmount
+      currentBalance: toAccount.currentBalance + toEntry.amount,
     });
-    pipeline.rpush(userAccountTransactionsKey(userId, fromAccountId), fromTransaction);
-    pipeline.rpush(userAccountTransactionsKey(userId, toAccountId), toTransaction);
+    pipeline.rpush(userAccountTransactionsKey(userId, fromAccountId), fromEntry);
+    pipeline.rpush(userAccountTransactionsKey(userId, toAccountId), toEntry);
     await pipeline.exec();
 
     return { success: true };

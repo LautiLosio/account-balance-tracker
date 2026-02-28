@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@auth0/nextjs-auth0';
-import { appendTransaction, transferBetweenAccounts } from '@/lib/db';
+import { appendTransaction, getAccount, transferBetweenAccounts } from '@/lib/db';
 import { Transaction } from '@/types/schema';
 import { validateServerEnv } from '@/lib/env';
 
@@ -23,26 +23,61 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });
     }
 
-    const { transaction, toAccountId, exchangeRate } = await req.json() as {
+    const { transaction, toAccountId, exchangeRate } = (await req.json()) as {
       transaction: Transaction;
       toAccountId?: number;
       exchangeRate?: number;
     };
 
-    if (!transaction) {
+    if (!transaction || !transaction.type || !Number.isFinite(transaction.amount)) {
       return NextResponse.json({ error: 'Invalid transaction data' }, { status: 400 });
     }
 
+    const fromAccount = await getAccount(userId, accountId);
+    if (!fromAccount) {
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+    }
+
     if (transaction.type === 'transfer') {
-      if (!toAccountId || toAccountId === accountId || transaction.amount <= 0) {
-        return NextResponse.json({ error: 'Invalid transfer payload' }, { status: 400 });
+      if (!toAccountId || !Number.isInteger(toAccountId)) {
+        return NextResponse.json({ error: 'Transfer requires a destination account' }, { status: 400 });
+      }
+
+      if (toAccountId === accountId) {
+        return NextResponse.json({ error: 'Transfer destination must be different from source account' }, { status: 400 });
+      }
+
+      if (transaction.amount === 0) {
+        return NextResponse.json({ error: 'Transfer amount cannot be zero' }, { status: 400 });
+      }
+
+      if (transaction.fromAccount && transaction.fromAccount !== accountId) {
+        return NextResponse.json({ error: 'Transfer source account mismatch' }, { status: 400 });
+      }
+
+      if (transaction.toAccount && transaction.toAccount !== toAccountId) {
+        return NextResponse.json({ error: 'Transfer destination account mismatch' }, { status: 400 });
+      }
+
+      const destinationAccount = await getAccount(userId, toAccountId);
+      if (!destinationAccount) {
+        return NextResponse.json({ error: 'Destination account not found' }, { status: 404 });
+      }
+
+      const isCrossCurrency = fromAccount.isForeignCurrency || destinationAccount.isForeignCurrency;
+      if (isCrossCurrency && (!exchangeRate || exchangeRate <= 0)) {
+        return NextResponse.json({ error: 'Cross-currency transfer requires a positive exchange rate' }, { status: 400 });
+      }
+
+      if (!isCrossCurrency && exchangeRate !== undefined && exchangeRate <= 0) {
+        return NextResponse.json({ error: 'Exchange rate must be positive' }, { status: 400 });
       }
 
       const transferResult = await transferBetweenAccounts(
         userId,
         accountId,
         toAccountId,
-        transaction.amount,
+        Math.abs(transaction.amount),
         exchangeRate
       );
 
@@ -61,10 +96,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ success: true });
     }
 
+    if (toAccountId !== undefined) {
+      return NextResponse.json({ error: 'Only transfers may include destination account' }, { status: 400 });
+    }
+
+    if (exchangeRate !== undefined) {
+      return NextResponse.json({ error: 'Only transfers may include exchange rate' }, { status: 400 });
+    }
+
+    if (transaction.type === 'income' && transaction.amount <= 0) {
+      return NextResponse.json({ error: 'Income amount must be positive' }, { status: 400 });
+    }
+
+    if (transaction.type === 'expense' && transaction.amount >= 0) {
+      return NextResponse.json({ error: 'Expense amount must be negative' }, { status: 400 });
+    }
+
     const success = await appendTransaction(userId, accountId, {
       ...transaction,
       fromAccount: accountId,
-      date: new Date(transaction.date)
+      date: new Date(transaction.date),
     });
 
     if (!success) {
