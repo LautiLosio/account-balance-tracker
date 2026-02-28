@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useUser } from '@auth0/nextjs-auth0/client'
 import { toast } from 'sonner'
 import { Account, Transaction } from '@/types/schema'
+import { buildTransferEntries, toCanonicalAmount } from '@/lib/transactions'
 
 export function useAccountData() {
   const { user, isLoading: isUserLoading } = useUser()
@@ -126,17 +127,9 @@ export function useAccountData() {
     }
 
     try {
-      const transactionAmount = type === 'expense' ? -amount : amount
       const updatedAccounts = [...accounts]
       const transactionId = Math.max(0, ...updatedAccounts.flatMap(acc => acc.transactions.map(t => t.id))) + 1
-      const newTransaction: Transaction = {
-        id: transactionId,
-        date: new Date(),
-        description: type === 'transfer' ? `Transfer` : type,
-        amount: transactionAmount,
-        type,
-        fromAccount: selectedAccount,
-      }
+      const transactionDate = new Date()
 
       // Handle UI updates first for immediate feedback
       if (type === 'transfer' && transferTo !== undefined) {
@@ -144,25 +137,27 @@ export function useAccountData() {
         const toAccount = updatedAccounts.find(acc => acc.id === transferTo)
 
         if (fromAccount && toAccount) {
-          let transferAmount = transactionAmount
-          const rate = exchangeRate || 1
-          
-          if (fromAccount.isForeignCurrency || toAccount.isForeignCurrency) {
-            transferAmount = fromAccount.isForeignCurrency ? transactionAmount * rate : transactionAmount * (1 / rate)
-            newTransaction.exchangeRate = rate
-          }
+          const { fromEntry, toEntry } = buildTransferEntries({
+            id: transactionId,
+            date: transactionDate,
+            fromAccountId: selectedAccount,
+            toAccountId: transferTo,
+            fromAccountName: fromAccount.name,
+            toAccountName: toAccount.name,
+            sourceAmount: amount,
+            fromAccountIsForeign: fromAccount.isForeignCurrency,
+            toAccountIsForeign: toAccount.isForeignCurrency,
+            exchangeRate,
+          })
 
-          fromAccount.currentBalance -= transactionAmount
-          toAccount.currentBalance += transferAmount
-          newTransaction.fromAccount = selectedAccount
-          newTransaction.toAccount = transferTo
-          newTransaction.description = `Transfer from ${fromAccount.name} to ${toAccount.name}`
-          fromAccount.transactions.push({ ...newTransaction, amount: -transactionAmount })
-          toAccount.transactions.push({ ...newTransaction, amount: transferAmount })
-          
+          fromAccount.currentBalance += fromEntry.amount
+          toAccount.currentBalance += toEntry.amount
+          fromAccount.transactions.push(fromEntry)
+          toAccount.transactions.push(toEntry)
+
           // Update UI
           setAccounts(updatedAccounts)
-          
+
           // Save to API
           const response = await fetch(`/api/accounts/${selectedAccount}/transactions`, {
             method: 'POST',
@@ -170,25 +165,38 @@ export function useAccountData() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              transaction: newTransaction,
+              transaction: fromEntry,
               toAccountId: transferTo,
-              exchangeRate: rate
+              exchangeRate: fromEntry.exchangeRate
             }),
           })
-          
+
           if (!response.ok) {
             throw new Error('Failed to save transaction')
           }
+
+          toast.success('Transfer added successfully', {
+            description: `Amount: ${Math.abs(fromEntry.amount).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`,
+          })
         }
       } else {
         const account = updatedAccounts.find(acc => acc.id === selectedAccount)
         if (account) {
-          account.currentBalance += transactionAmount
+          const newTransaction: Transaction = {
+            id: transactionId,
+            date: transactionDate,
+            description: type,
+            amount: toCanonicalAmount(type, amount),
+            type,
+            fromAccount: selectedAccount,
+          }
+
+          account.currentBalance += newTransaction.amount
           account.transactions.push(newTransaction)
-          
+
           // Update UI
           setAccounts(updatedAccounts)
-          
+
           // Save to API
           const response = await fetch(`/api/accounts/${selectedAccount}/transactions`, {
             method: 'POST',
@@ -199,16 +207,16 @@ export function useAccountData() {
               transaction: newTransaction
             }),
           })
-          
+
           if (!response.ok) {
             throw new Error('Failed to save transaction')
           }
+
+          toast.success(`${newTransaction.description} added successfully`, {
+            description: `Amount: ${newTransaction.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`,
+          })
         }
       }
-
-      toast.success(`${newTransaction.description} added successfully`, {
-        description: `Amount: ${transactionAmount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`,
-      })
     } catch (error) {
       console.error('Error adding transaction:', error)
       toast.error('Failed to add transaction')

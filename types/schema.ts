@@ -1,3 +1,12 @@
+export type TransactionType = 'income' | 'expense' | 'transfer';
+
+export const TRANSACTION_CANONICAL_RULES = {
+  income: 'Income entries are always stored as positive amounts.',
+  expense: 'Expense entries are always stored as negative amounts.',
+  transferOut: 'Transfer-out entries are always negative on the source account ledger.',
+  transferIn: 'Transfer-in entries are always positive on the destination account ledger.',
+} as const;
+
 // Define the Account type
 export interface Account {
   id: number;
@@ -14,7 +23,7 @@ export interface Transaction {
   date: Date;
   description: string;
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
+  type: TransactionType;
   fromAccount: number;
   toAccount?: number;
   exchangeRate?: number;
