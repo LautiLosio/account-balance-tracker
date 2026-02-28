@@ -66,7 +66,7 @@ export function MainAccountsClient() {
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-xs text-muted-foreground">
             {accounts.some((a) => a.isForeignCurrency) && (
               <>
-                <span className="text-sky-300">USD subtotal: {formattedForeignTotal}</span>
+                <span className="text-sky-700 dark:text-sky-300">USD subtotal: {formattedForeignTotal}</span>
               </>
             )}
             {pendingSyncCount > 0 && (

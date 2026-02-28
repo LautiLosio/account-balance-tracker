@@ -35,22 +35,22 @@ const TYPE_CONFIG: Record<TxType, TxVisualConfig> = {
   income: {
     label: 'Income',
     icon: PlusCircle,
-    selected: 'border-emerald-400/70 bg-emerald-500/20 text-emerald-200',
-    unselected: 'border-transparent text-emerald-300/70 hover:border-emerald-400/40 hover:bg-emerald-500/10 hover:text-emerald-200',
+    selected: 'border-emerald-500/50 bg-emerald-100 text-emerald-800 dark:border-emerald-400/70 dark:bg-emerald-500/20 dark:text-emerald-200',
+    unselected: 'border-transparent text-emerald-700 hover:border-emerald-500/40 hover:bg-emerald-100 hover:text-emerald-800 dark:text-emerald-300/70 dark:hover:border-emerald-400/40 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-200',
     submit: '!bg-emerald-500 !text-white hover:!bg-emerald-600',
   },
   expense: {
     label: 'Expense',
     icon: MinusCircle,
-    selected: 'border-rose-400/70 bg-rose-500/20 text-rose-200',
-    unselected: 'border-transparent text-rose-300/70 hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-200',
+    selected: 'border-rose-500/50 bg-rose-100 text-rose-800 dark:border-rose-400/70 dark:bg-rose-500/20 dark:text-rose-200',
+    unselected: 'border-transparent text-rose-700 hover:border-rose-500/40 hover:bg-rose-100 hover:text-rose-800 dark:text-rose-300/70 dark:hover:border-rose-400/40 dark:hover:bg-rose-500/10 dark:hover:text-rose-200',
     submit: '!bg-rose-500 !text-white hover:!bg-rose-600',
   },
   transfer: {
     label: 'Transfer',
     icon: ArrowRightLeft,
-    selected: 'border-sky-400/70 bg-sky-500/20 text-sky-200',
-    unselected: 'border-transparent text-sky-300/70 hover:border-sky-400/40 hover:bg-sky-500/10 hover:text-sky-200',
+    selected: 'border-sky-500/50 bg-sky-100 text-sky-800 dark:border-sky-400/70 dark:bg-sky-500/20 dark:text-sky-200',
+    unselected: 'border-transparent text-sky-700 hover:border-sky-500/40 hover:bg-sky-100 hover:text-sky-800 dark:text-sky-300/70 dark:hover:border-sky-400/40 dark:hover:bg-sky-500/10 dark:hover:text-sky-200',
     submit: '!bg-sky-500 !text-sky-950 hover:!bg-sky-400',
   },
 };
