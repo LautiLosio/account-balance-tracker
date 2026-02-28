@@ -1,129 +1,250 @@
 import { kv } from '@vercel/kv';
 import { Account, Transaction } from '@/types/schema';
 
+type AccountMeta = Omit<Account, 'transactions'>;
+
+type TransferResult = {
+  success: boolean;
+  error?: 'ACCOUNT_NOT_FOUND' | 'INSUFFICIENT_FUNDS';
+};
+
+const userAccountIdsKey = (userId: string) => `user:${userId}:accounts:ids`;
+const userAccountMetaKey = (userId: string, accountId: number) => `user:${userId}:account:${accountId}:meta`;
+const userAccountTransactionsKey = (userId: string, accountId: number) => `user:${userId}:account:${accountId}:transactions`;
+const legacyUserAccountsKey = (userId: string) => `user:${userId}:accounts`;
+
+function toAccountMeta(account: Account): AccountMeta {
+  return {
+    id: account.id,
+    name: account.name,
+    initialBalance: account.initialBalance,
+    currentBalance: account.currentBalance,
+    isForeignCurrency: account.isForeignCurrency
+  };
+}
+
+async function migrateLegacyAccounts(userId: string): Promise<Account[]> {
+  const legacyAccounts = await kv.get<Account[]>(legacyUserAccountsKey(userId));
+  if (!legacyAccounts?.length) {
+    return [];
+  }
+
+  const pipeline = kv.multi();
+
+  for (const account of legacyAccounts) {
+    pipeline.sadd(userAccountIdsKey(userId), account.id.toString());
+    pipeline.set(userAccountMetaKey(userId, account.id), toAccountMeta(account));
+    pipeline.del(userAccountTransactionsKey(userId, account.id));
+
+    for (const transaction of account.transactions ?? []) {
+      pipeline.rpush(userAccountTransactionsKey(userId, account.id), transaction);
+    }
+  }
+
+  pipeline.del(legacyUserAccountsKey(userId));
+  await pipeline.exec();
+
+  return legacyAccounts;
+}
+
+async function getAccountMeta(userId: string, accountId: number): Promise<AccountMeta | null> {
+  const account = await kv.get<AccountMeta>(userAccountMetaKey(userId, accountId));
+  return account || null;
+}
+
+async function getAccountTransactions(userId: string, accountId: number): Promise<Transaction[]> {
+  const transactions = await kv.lrange<Transaction[]>(userAccountTransactionsKey(userId, accountId), 0, -1);
+  return transactions || [];
+}
+
 // User accounts operations
 export async function getUserAccounts(userId: string): Promise<Account[]> {
   try {
-    const accounts = await kv.get<Account[]>(`user:${userId}:accounts`);
-    return accounts || [];
+    const accountIds = await kv.smembers<string[]>(userAccountIdsKey(userId));
+
+    if (!accountIds?.length) {
+      return await migrateLegacyAccounts(userId);
+    }
+
+    const sortedIds = accountIds
+      .map(id => Number.parseInt(id, 10))
+      .filter(id => !Number.isNaN(id))
+      .sort((a, b) => a - b);
+
+    const accounts = await Promise.all(
+      sortedIds.map(async (accountId) => {
+        const [meta, transactions] = await Promise.all([
+          getAccountMeta(userId, accountId),
+          getAccountTransactions(userId, accountId)
+        ]);
+
+        if (!meta) {
+          return null;
+        }
+
+        return {
+          ...meta,
+          transactions
+        } satisfies Account;
+      })
+    );
+
+    return accounts.filter((account): account is Account => account !== null);
   } catch (error) {
     console.error('Error fetching user accounts:', error);
     return [];
   }
 }
 
-export async function saveUserAccounts(userId: string, accounts: Account[]): Promise<boolean> {
-  try {
-    await kv.set(`user:${userId}:accounts`, accounts);
-    return true;
-  } catch (error) {
-    console.error('Error saving user accounts:', error);
-    return false;
-  }
-}
-
 // Individual account operations
 export async function getAccount(userId: string, accountId: number): Promise<Account | null> {
   try {
-    const accounts = await getUserAccounts(userId);
-    return accounts.find(account => account.id === accountId) || null;
+    const [meta, transactions] = await Promise.all([
+      getAccountMeta(userId, accountId),
+      getAccountTransactions(userId, accountId)
+    ]);
+
+    if (!meta) {
+      return null;
+    }
+
+    return {
+      ...meta,
+      transactions
+    };
   } catch (error) {
     console.error('Error fetching account:', error);
     return null;
   }
 }
 
-export async function saveAccount(userId: string, account: Account): Promise<boolean> {
+export async function createAccount(userId: string, account: Account): Promise<boolean> {
   try {
-    const accounts = await getUserAccounts(userId);
-    const existingIndex = accounts.findIndex(a => a.id === account.id);
-    
-    if (existingIndex >= 0) {
-      accounts[existingIndex] = account;
-    } else {
-      accounts.push(account);
+    const exists = await kv.sismember(userAccountIdsKey(userId), account.id.toString());
+    if (exists) {
+      return false;
     }
-    
-    return await saveUserAccounts(userId, accounts);
+
+    const pipeline = kv.multi();
+    pipeline.sadd(userAccountIdsKey(userId), account.id.toString());
+    pipeline.set(userAccountMetaKey(userId, account.id), toAccountMeta(account));
+    pipeline.del(userAccountTransactionsKey(userId, account.id));
+
+    for (const transaction of account.transactions ?? []) {
+      pipeline.rpush(userAccountTransactionsKey(userId, account.id), transaction);
+    }
+
+    await pipeline.exec();
+    return true;
   } catch (error) {
-    console.error('Error saving account:', error);
+    console.error('Error creating account:', error);
+    return false;
+  }
+}
+
+export async function updateAccount(userId: string, account: Account): Promise<boolean> {
+  try {
+    const exists = await kv.sismember(userAccountIdsKey(userId), account.id.toString());
+    if (!exists) {
+      return false;
+    }
+
+    await kv.set(userAccountMetaKey(userId, account.id), toAccountMeta(account));
+    return true;
+  } catch (error) {
+    console.error('Error updating account:', error);
     return false;
   }
 }
 
 export async function deleteAccount(userId: string, accountId: number): Promise<boolean> {
   try {
-    const accounts = await getUserAccounts(userId);
-    const updatedAccounts = accounts.filter(account => account.id !== accountId);
-    
-    if (accounts.length === updatedAccounts.length) {
-      return false; // No account was deleted
+    const exists = await kv.sismember(userAccountIdsKey(userId), accountId.toString());
+    if (!exists) {
+      return false;
     }
-    
-    return await saveUserAccounts(userId, updatedAccounts);
+
+    const pipeline = kv.multi();
+    pipeline.srem(userAccountIdsKey(userId), accountId.toString());
+    pipeline.del(userAccountMetaKey(userId, accountId));
+    pipeline.del(userAccountTransactionsKey(userId, accountId));
+    await pipeline.exec();
+    return true;
   } catch (error) {
     console.error('Error deleting account:', error);
     return false;
   }
 }
 
-// Transaction operations
-export async function addTransaction(userId: string, accountId: number, transaction: Transaction): Promise<boolean> {
+export async function appendTransaction(userId: string, accountId: number, transaction: Transaction): Promise<boolean> {
   try {
-    const account = await getAccount(userId, accountId);
-    if (!account) return false;
-    
-    account.transactions.push(transaction);
-    
-    // Update account balance
-    if (transaction.type === 'income' || transaction.type === 'expense') {
-      // For both income and expense, we directly add the amount to the balance
-      // Income amounts are positive, expense amounts are negative
-      account.currentBalance += transaction.amount;
+    const accountMeta = await getAccountMeta(userId, accountId);
+    if (!accountMeta) {
+      return false;
     }
-    
-    return await saveAccount(userId, account);
+
+    const balanceDelta = transaction.type === 'transfer' ? 0 : transaction.amount;
+    const updatedMeta: AccountMeta = {
+      ...accountMeta,
+      currentBalance: accountMeta.currentBalance + balanceDelta
+    };
+
+    const normalizedTransaction: Transaction = {
+      ...transaction,
+      date: new Date(transaction.date),
+      fromAccount: transaction.fromAccount ?? accountId
+    };
+
+    const pipeline = kv.multi();
+    pipeline.set(userAccountMetaKey(userId, accountId), updatedMeta);
+    pipeline.rpush(userAccountTransactionsKey(userId, accountId), normalizedTransaction);
+    await pipeline.exec();
+
+    return true;
   } catch (error) {
-    console.error('Error adding transaction:', error);
+    console.error('Error appending transaction:', error);
     return false;
   }
 }
 
-export async function addTransferTransaction(
-  userId: string, 
-  fromAccountId: number, 
-  toAccountId: number, 
+export async function transferBetweenAccounts(
+  userId: string,
+  fromAccountId: number,
+  toAccountId: number,
   amount: number,
   exchangeRate?: number
-): Promise<boolean> {
+): Promise<TransferResult> {
   try {
-    const fromAccount = await getAccount(userId, fromAccountId);
-    const toAccount = await getAccount(userId, toAccountId);
-    
-    if (!fromAccount || !toAccount) return false;
-    
-    // Create a unique transaction ID
-    const transactionId = Date.now();
-    
-    // Calculate transfer amount with exchange rate if applicable
-    let toAmount = amount;
-    if (exchangeRate && (fromAccount.isForeignCurrency || toAccount.isForeignCurrency)) {
-      toAmount = fromAccount.isForeignCurrency ? amount * exchangeRate : amount / exchangeRate;
+    const [fromAccount, toAccount] = await Promise.all([
+      getAccountMeta(userId, fromAccountId),
+      getAccountMeta(userId, toAccountId)
+    ]);
+
+    if (!fromAccount || !toAccount) {
+      return { success: false, error: 'ACCOUNT_NOT_FOUND' };
     }
-    
-    // Create transaction for source account
+
+    if (fromAccount.currentBalance < amount) {
+      return { success: false, error: 'INSUFFICIENT_FUNDS' };
+    }
+
+    const transactionId = Date.now();
+    const conversionRate = exchangeRate ?? 1;
+    const toAmount = (fromAccount.isForeignCurrency || toAccount.isForeignCurrency)
+      ? (fromAccount.isForeignCurrency ? amount * conversionRate : amount / conversionRate)
+      : amount;
+
     const fromTransaction: Transaction = {
       id: transactionId,
       date: new Date(),
       description: `Transfer to ${toAccount.name}`,
-      amount: amount,
+      amount: -amount,
       type: 'transfer',
       fromAccount: fromAccountId,
       toAccount: toAccountId,
       exchangeRate
     };
-    
-    // Create transaction for destination account
+
     const toTransaction: Transaction = {
       id: transactionId,
       date: new Date(),
@@ -134,22 +255,23 @@ export async function addTransferTransaction(
       toAccount: toAccountId,
       exchangeRate
     };
-    
-    // Update balances
-    fromAccount.currentBalance -= amount;
-    toAccount.currentBalance += toAmount;
-    
-    // Add transactions to accounts
-    fromAccount.transactions.push(fromTransaction);
-    toAccount.transactions.push(toTransaction);
-    
-    // Save both accounts
-    const fromSaved = await saveAccount(userId, fromAccount);
-    const toSaved = await saveAccount(userId, toAccount);
-    
-    return fromSaved && toSaved;
+
+    const pipeline = kv.multi();
+    pipeline.set(userAccountMetaKey(userId, fromAccountId), {
+      ...fromAccount,
+      currentBalance: fromAccount.currentBalance - amount
+    });
+    pipeline.set(userAccountMetaKey(userId, toAccountId), {
+      ...toAccount,
+      currentBalance: toAccount.currentBalance + toAmount
+    });
+    pipeline.rpush(userAccountTransactionsKey(userId, fromAccountId), fromTransaction);
+    pipeline.rpush(userAccountTransactionsKey(userId, toAccountId), toTransaction);
+    await pipeline.exec();
+
+    return { success: true };
   } catch (error) {
-    console.error('Error adding transfer transaction:', error);
-    return false;
+    console.error('Error transferring between accounts:', error);
+    return { success: false };
   }
 }
