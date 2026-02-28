@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { auth0 } from '@/lib/auth0';
 import { getAccount, getUserAccounts } from '@/lib/db';
 import { Account } from '@/types/schema';
@@ -8,7 +9,7 @@ export interface SessionUserSummary {
   picture?: string;
 }
 
-export async function getAuthenticatedUser() {
+export const getAuthenticatedUser = cache(async () => {
   try {
     const session = await auth0.getSession();
     return session?.user;
@@ -16,6 +17,10 @@ export async function getAuthenticatedUser() {
     console.error('Failed to read session:', error);
     return null;
   }
+});
+
+export async function getInitialAccountsForUser(userId: string): Promise<Account[]> {
+  return getUserAccounts(userId);
 }
 
 export async function getInitialAccounts(): Promise<Account[]> {
@@ -24,7 +29,7 @@ export async function getInitialAccounts(): Promise<Account[]> {
     return [];
   }
 
-  return getUserAccounts(user.sub);
+  return getInitialAccountsForUser(user.sub);
 }
 
 export async function getInitialAccountById(accountId: number): Promise<Account | null> {

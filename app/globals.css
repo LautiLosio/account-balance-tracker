@@ -20,25 +20,25 @@
 
 @layer base {
   :root {
-    --background: 40 18% 97%;
-    --foreground: 228 25% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 228 25% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 228 25% 8%;
-    --primary: 73 72% 34%;
+    --background: 220 16% 90%;
+    --foreground: 222 40% 10%;
+    --card: 220 16% 94%;
+    --card-foreground: 222 45% 11%;
+    --popover: 220 16% 94%;
+    --popover-foreground: 222 45% 11%;
+    --primary: 158 67% 28%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 10% 91%;
-    --secondary-foreground: 228 25% 8%;
-    --muted: 40 10% 91%;
-    --muted-foreground: 228 10% 44%;
-    --accent: 73 72% 34%;
+    --secondary: 220 12% 84%;
+    --secondary-foreground: 222 45% 11%;
+    --muted: 220 12% 84%;
+    --muted-foreground: 220 10% 32%;
+    --accent: 203 78% 36%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 57%;
+    --destructive: 0 70% 46%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 10% 86%;
-    --input: 40 10% 86%;
-    --ring: 73 72% 34%;
+    --border: 220 11% 70%;
+    --input: 220 11% 70%;
+    --ring: 158 67% 28%;
     --radius: 0.75rem;
   }
 
@@ -110,6 +110,28 @@
   50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--primary-rgb, #c4ef35) 0%, transparent); }
 }
 
+@keyframes account-shared-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+}
+
+@keyframes account-shared-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .animate-fade-slide-up {
   animation: fade-slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
@@ -122,10 +144,38 @@
   animation: scale-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+@view-transition {
+  navigation: auto;
+}
+
 @supports (view-transition-name: none) {
   ::view-transition-group(*) {
     animation-duration: 280ms;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  ::view-transition-group(.account-name-shared),
+  ::view-transition-group(.account-balance-shared) {
+    animation-duration: 420ms;
+  }
+
+  ::view-transition-old(.account-name-shared),
+  ::view-transition-old(.account-balance-shared),
+  ::view-transition-new(.account-name-shared),
+  ::view-transition-new(.account-balance-shared) {
+    mix-blend-mode: normal;
+    animation-duration: 360ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  ::view-transition-old(.account-name-shared),
+  ::view-transition-old(.account-balance-shared) {
+    animation-name: account-shared-slide-out;
+  }
+
+  ::view-transition-new(.account-name-shared),
+  ::view-transition-new(.account-balance-shared) {
+    animation-name: account-shared-slide-in;
   }
 
   ::view-transition-old(root),

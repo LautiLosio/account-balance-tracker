@@ -5,6 +5,12 @@ import { Account } from '@/types/schema';
 import { cn } from '@/lib/utils';
 import { formatAccountMoney } from '@/lib/currency';
 import { getAccountAccentColor } from '@/lib/account-accent';
+import {
+  ACCOUNT_BALANCE_TRANSITION_CLASS,
+  ACCOUNT_NAME_TRANSITION_CLASS,
+  getAccountBalanceTransitionName,
+  getAccountNameTransitionName,
+} from '@/lib/view-transitions';
 
 interface TransactionHistoryProps {
   account: Account;
@@ -12,8 +18,8 @@ interface TransactionHistoryProps {
 }
 
 export function TransactionHistory({ account, onDeleteAccount }: TransactionHistoryProps) {
-  const nameTransitionId = `account-name-${account.id}`;
-  const balanceTransitionId = `account-balance-${account.id}`;
+  const nameTransitionId = getAccountNameTransitionName(account.id);
+  const balanceTransitionId = getAccountBalanceTransitionName(account.id);
   const accentColor = getAccountAccentColor(account.id);
 
   const handleDelete = () => {
@@ -46,7 +52,10 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
               </span>
               <h2
                 className="mt-1.5 font-display text-3xl font-bold leading-tight text-foreground sm:text-4xl"
-                style={{ viewTransitionName: nameTransitionId }}
+                style={{
+                  viewTransitionName: nameTransitionId,
+                  viewTransitionClass: ACCOUNT_NAME_TRANSITION_CLASS,
+                }}
               >
                 {account.name}
               </h2>
@@ -67,7 +76,10 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
             <p className={cn(
               'font-display text-4xl font-bold tabular sm:text-5xl',
               account.currentBalance < 0 ? 'text-rose-500' : 'text-foreground'
-            )} style={{ viewTransitionName: balanceTransitionId }}>
+            )} style={{
+              viewTransitionName: balanceTransitionId,
+              viewTransitionClass: ACCOUNT_BALANCE_TRANSITION_CLASS,
+            }}>
               {formatAccountMoney(account.currentBalance, account)}
             </p>
           </div>
@@ -127,11 +139,6 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
                       <p className="font-semibold capitalize leading-tight text-foreground">{tx.description}</p>
                       <p className="mt-0.5 font-mono text-xs text-muted-foreground">
                         {date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        {tx.type === 'transfer' && (
-                          <span className="ml-2 rounded border border-primary/20 bg-primary/10 px-1.5 py-px text-[10px] font-semibold text-primary">
-                            Transfer
-                          </span>
-                        )}
                       </p>
                     </div>
 

@@ -1,10 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Account } from '@/types/schema';
-import { useAccountData } from '@/hooks/useAccountData';
-import { SessionUserSummary } from '@/lib/server-accounts';
-import { AppHeader } from '@/components/app/app-header';
+import { useAppData } from '@/components/app/app-data-context';
 import { AccountForm } from '@/components/account-form';
 import { AccountList } from '@/components/account-list';
 import { TransactionForm } from '@/components/transaction-form';
@@ -14,14 +11,9 @@ import { ChevronDown, Plus, TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/currency';
 
-interface MainAccountsClientProps {
-  initialAccounts: Account[];
-  user: SessionUserSummary;
-}
-
-export function MainAccountsClient({ initialAccounts, user }: MainAccountsClientProps) {
+export function MainAccountsClient() {
   const [txSheetOpen, setTxSheetOpen] = useState(false);
-  const { accounts, setAccounts, addAccount, addTransaction, clearAllLocalData, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
+  const { accounts, addAccount, addTransaction, pendingSyncCount } = useAppData();
 
   const totalLocalBalance = useMemo(
     () => accounts.filter((a) => !a.isForeignCurrency).reduce((s, a) => s + a.currentBalance, 0),
@@ -50,7 +42,7 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
           ...t,
         })))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 6),
+        .slice(0, 3),
     [accounts]
   );
 
@@ -60,18 +52,7 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
   };
 
   return (
-    <div className="min-h-[calc(100vh-3rem)]">
-      <AppHeader
-        accounts={accounts}
-        setAccounts={setAccounts}
-        user={user}
-        pendingSyncCount={pendingSyncCount}
-        isSyncing={isSyncing}
-        isOnline={isOnline}
-        onSyncNow={syncNow}
-        onClearAllData={clearAllLocalData}
-      />
-
+    <>
       <div className="mx-auto max-w-screen-lg px-4 pb-28 pt-6 sm:px-6 sm:pb-12 sm:pt-8 lg:pb-10">
 
         {/* Portfolio hero */}
@@ -83,22 +64,14 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
             {formattedLocalTotal}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-xs text-muted-foreground">
-            <span>{accounts.length} {accounts.length === 1 ? 'account' : 'accounts'}</span>
             {accounts.some((a) => a.isForeignCurrency) && (
               <>
-                <span className="h-3 w-px bg-border" />
                 <span className="text-sky-300">USD subtotal: {formattedForeignTotal}</span>
               </>
             )}
-            {accounts.length > 0 && <span className="h-3 w-px bg-border" />}
-            {accounts.length > 0 && (
-              <span className={cn('font-medium', isOnline ? 'text-primary' : 'text-rose-500')}>
-                {isOnline ? '● Online' : '○ Offline'}
-              </span>
-            )}
             {pendingSyncCount > 0 && (
               <>
-                <span className="h-3 w-px bg-border" />
+                {accounts.some((a) => a.isForeignCurrency) && <span className="h-3 w-px bg-border" />}
                 <span className="text-amber-400">{pendingSyncCount} pending sync</span>
               </>
             )}
@@ -156,7 +129,7 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
               </div>
             )}
 
-            {/* Manage accounts (collapsible) */}
+            {/* New account (collapsible) */}
             <div
               className="animate-fade-slide-up opacity-0"
               style={{ animationDelay: '220ms', animationFillMode: 'forwards' }}
@@ -165,7 +138,7 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
                   <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors hover:bg-muted/30 active:bg-muted/50">
                     <span className="font-display text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground">
-                      Manage Accounts
+                      New Account
                     </span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </CollapsibleTrigger>
@@ -218,6 +191,6 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </>
   );
 }

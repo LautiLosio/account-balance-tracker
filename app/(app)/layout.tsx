@@ -1,4 +1,5 @@
-import { getAuthenticatedUser } from '@/lib/server-accounts';
+import { AuthenticatedAppShell } from '@/components/app/authenticated-app-shell';
+import { getAuthenticatedUser, getInitialAccountsForUser } from '@/lib/server-accounts';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,5 +45,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
 
-  return <>{children}</>;
+  const initialAccounts = await getInitialAccountsForUser(user.sub);
+
+  return (
+    <AuthenticatedAppShell
+      initialAccounts={initialAccounts}
+      user={{
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+      }}
+    >
+      {children}
+    </AuthenticatedAppShell>
+  );
 }

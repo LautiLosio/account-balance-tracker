@@ -6,27 +6,25 @@ import { CheckCircle2, CloudOff, Download, Moon, RefreshCw, Sun, Upload, Zap } f
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { SessionUserSummary } from '@/lib/server-accounts';
-import { Account } from '@/types/schema';
+import { useAppData } from '@/components/app/app-data-context';
 import { exportAllDataCSV, handleFileImport } from '@/utils/dataImportExport';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
-interface AppHeaderProps {
-  accounts: Account[];
-  setAccounts: (accounts: Account[]) => void;
-  user: SessionUserSummary;
-  pendingSyncCount: number;
-  isSyncing: boolean;
-  isOnline: boolean;
-  onSyncNow: () => void;
-  onClearAllData: () => void;
-}
-
-export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyncing, isOnline, onSyncNow, onClearAllData }: AppHeaderProps) {
+export function AppHeader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
+  const {
+    accounts,
+    clearAllLocalData,
+    isOnline,
+    isSyncing,
+    pendingSyncCount,
+    setAccounts,
+    syncNow,
+    user,
+  } = useAppData();
 
   const SyncIcon = !isOnline ? CloudOff : isSyncing ? RefreshCw : pendingSyncCount > 0 ? Zap : CheckCircle2;
   const syncColor = !isOnline ? 'text-rose-500' : isSyncing || pendingSyncCount > 0 ? 'text-amber-400' : 'text-primary';
@@ -61,7 +59,7 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
         throw new Error(`Failed to delete account data: ${response.status}`);
       }
 
-      onClearAllData();
+      clearAllLocalData();
       toast.success('Account data deleted');
       window.location.assign('/api/auth/logout');
     } catch (error) {
@@ -88,7 +86,7 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
         <div className="flex items-center gap-0.5">
           <button
             type="button"
-            onClick={onSyncNow}
+            onClick={syncNow}
             className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title={syncLabel}
           >
@@ -140,7 +138,7 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
                 aria-label="Account"
               >
                 {user.picture ? (
-                  <Image src={user.picture} alt={user.name ?? 'User'} width={24} height={24} className="h-6 w-6 rounded-full object-cover" unoptimized />
+                  <Image src={user.picture} alt={user.name ?? 'User'} width={40} height={40} className="h-6 w-6 rounded-full object-cover" />
                 ) : (
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-display text-[11px] font-bold text-primary-foreground">
                     {user.name?.charAt(0).toUpperCase() ?? 'U'}
@@ -155,7 +153,7 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
               <div className="p-6">
                 <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
                   {user.picture ? (
-                    <Image src={user.picture} alt={user.name ?? 'User'} width={40} height={40} className="h-10 w-10 rounded-full" unoptimized />
+                    <Image src={user.picture} alt={user.name ?? 'User'} width={40} height={40} className="h-10 w-10 rounded-full" />
                   ) : (
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground">
                       {user.name?.charAt(0).toUpperCase() ?? 'U'}
