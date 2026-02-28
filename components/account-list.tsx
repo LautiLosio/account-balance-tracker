@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Account } from '@/types/schema';
 import { cn } from '@/lib/utils';
+import { formatAccountMoney } from '@/lib/currency';
+import { getAccountAccentColor } from '@/lib/account-accent';
 
 interface AccountListProps {
   accounts: Account[];
@@ -29,8 +31,9 @@ export function AccountList({ accounts }: AccountListProps) {
       ) : (
         <ul className="space-y-2.5">
           {accounts.map((account, index) => {
-            const lastTx = [...account.transactions]
-              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+            const nameTransitionId = `account-name-${account.id}`;
+            const balanceTransitionId = `account-balance-${account.id}`;
+            const accentColor = getAccountAccentColor(account.id);
 
             return (
               <li
@@ -43,16 +46,23 @@ export function AccountList({ accounts }: AccountListProps) {
                   className="group flex items-stretch overflow-hidden rounded-xl border border-border bg-card transition-all duration-200 hover:border-primary/40 active:scale-[0.99] active:bg-muted/20"
                 >
                   {/* Left accent bar */}
-                  <span className="w-1 shrink-0 bg-border transition-colors duration-200 group-hover:bg-primary" />
+                  <span
+                    className="w-1 shrink-0 transition-[filter] duration-200 group-hover:brightness-110"
+                    style={{ backgroundColor: accentColor }}
+                  />
 
-                  <div className="flex flex-1 items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                  <div className="flex flex-1 items-center justify-between gap-3 px-4 py-4 sm:px-5">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-display text-lg font-bold leading-tight text-foreground">
+                      <div className="min-w-0">
+                        <p
+                          className="truncate whitespace-nowrap font-display text-lg font-bold leading-tight text-foreground"
+                          style={{ viewTransitionName: nameTransitionId }}
+                          title={account.name}
+                        >
                           {account.name}
                         </p>
                         <span className={cn(
-                          'shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide',
+                          'mt-1 inline-flex rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide',
                           account.isForeignCurrency
                             ? 'bg-primary/15 text-primary'
                             : 'bg-muted text-muted-foreground'
@@ -60,27 +70,16 @@ export function AccountList({ accounts }: AccountListProps) {
                           {account.isForeignCurrency ? 'Foreign' : 'Local'}
                         </span>
                       </div>
-                      {lastTx ? (
-                        <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
-                          {lastTx.description}
-                          <span className={cn('ml-1.5', lastTx.amount >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                            {lastTx.amount >= 0 ? '+' : ''}
-                            {lastTx.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="mt-1 font-mono text-xs text-muted-foreground/50">No transactions yet</p>
-                      )}
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-2">
                       <p className={cn(
-                        'font-mono text-xl font-bold tabular sm:text-2xl',
+                        'w-[min(42vw,12rem)] text-right font-mono font-bold leading-tight tabular text-[clamp(1rem,4.6vw,1.3rem)]',
                         account.currentBalance < 0 ? 'text-rose-500' : 'text-foreground'
-                      )}>
-                        {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                      )} style={{ viewTransitionName: balanceTransitionId }}>
+                        {formatAccountMoney(account.currentBalance, account)}
                       </p>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-primary" />
                     </div>
                   </div>
                 </Link>

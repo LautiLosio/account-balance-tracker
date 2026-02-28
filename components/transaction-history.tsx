@@ -3,6 +3,8 @@
 import { Trash2 } from 'lucide-react';
 import { Account } from '@/types/schema';
 import { cn } from '@/lib/utils';
+import { formatAccountMoney } from '@/lib/currency';
+import { getAccountAccentColor } from '@/lib/account-accent';
 
 interface TransactionHistoryProps {
   account: Account;
@@ -10,6 +12,10 @@ interface TransactionHistoryProps {
 }
 
 export function TransactionHistory({ account, onDeleteAccount }: TransactionHistoryProps) {
+  const nameTransitionId = `account-name-${account.id}`;
+  const balanceTransitionId = `account-balance-${account.id}`;
+  const accentColor = getAccountAccentColor(account.id);
+
   const handleDelete = () => {
     if (window.confirm('Delete this account? This cannot be undone.')) {
       onDeleteAccount(account.id);
@@ -28,7 +34,7 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
       {/* Account hero card */}
       <div className="animate-scale-in overflow-hidden rounded-xl border border-border bg-card opacity-0" style={{ animationFillMode: 'forwards' }}>
         {/* Top accent stripe in primary color */}
-        <div className="h-1 w-full bg-primary" />
+        <div className="h-1 w-full" style={{ backgroundColor: accentColor }} />
         <div className="px-5 pb-5 pt-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -38,7 +44,10 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
               )}>
                 {account.isForeignCurrency ? 'Foreign' : 'Local'} · #{account.id}
               </span>
-              <h2 className="mt-1.5 font-display text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+              <h2
+                className="mt-1.5 font-display text-3xl font-bold leading-tight text-foreground sm:text-4xl"
+                style={{ viewTransitionName: nameTransitionId }}
+              >
                 {account.name}
               </h2>
             </div>
@@ -58,8 +67,8 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
             <p className={cn(
               'font-display text-4xl font-bold tabular sm:text-5xl',
               account.currentBalance < 0 ? 'text-rose-500' : 'text-foreground'
-            )}>
-              {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+            )} style={{ viewTransitionName: balanceTransitionId }}>
+              {formatAccountMoney(account.currentBalance, account)}
             </p>
           </div>
 
@@ -68,13 +77,13 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
             <div>
               <p className="text-muted-foreground">Initial</p>
               <p className="font-semibold text-foreground tabular">
-                {account.initialBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                {formatAccountMoney(account.initialBalance, account)}
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Net Change</p>
               <p className={cn('font-semibold tabular', delta >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                {delta >= 0 ? '+' : ''}{delta.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                {delta >= 0 ? '+' : ''}{formatAccountMoney(delta, account)}
               </p>
             </div>
             <div>
@@ -131,7 +140,7 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
                       tx.amount >= 0 ? 'text-emerald-500' : 'text-rose-500'
                     )}>
                       {tx.amount >= 0 ? '+' : ''}
-                      {tx.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                      {formatAccountMoney(tx.amount, account)}
                     </span>
                   </li>
                 );

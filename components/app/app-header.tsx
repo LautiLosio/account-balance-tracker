@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { SessionUserSummary } from '@/lib/server-accounts';
 import { Account } from '@/types/schema';
 import { exportAllDataCSV, handleFileImport } from '@/utils/dataImportExport';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 interface AppHeaderProps {
@@ -23,7 +23,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyncing, isOnline, onSyncNow }: AppHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
 
   const SyncIcon = !isOnline ? CloudOff : isSyncing ? RefreshCw : pendingSyncCount > 0 ? Zap : CheckCircle2;
   const syncColor = !isOnline ? 'text-rose-500' : isSyncing || pendingSyncCount > 0 ? 'text-amber-400' : 'text-primary';
@@ -80,11 +80,12 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
 
           <button
             type="button"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
             className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Toggle theme"
           >
-            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            <Sun className="hidden h-3.5 w-3.5 dark:block" />
+            <Moon className="h-3.5 w-3.5 dark:hidden" />
           </button>
 
           <Sheet>
@@ -104,9 +105,9 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
               </button>
             </SheetTrigger>
             <SheetContent className="flex flex-col gap-0 p-0">
-              <div className="border-b border-border px-6 py-5">
-                <p className="font-display text-xl font-bold text-foreground">Account</p>
-              </div>
+              <SheetHeader className="border-b border-border px-6 py-5">
+                <SheetTitle className="font-display text-xl font-bold text-foreground">Account</SheetTitle>
+              </SheetHeader>
               <div className="p-6">
                 <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
                   {user.picture ? (

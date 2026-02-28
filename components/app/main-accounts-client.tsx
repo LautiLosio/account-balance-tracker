@@ -9,9 +9,10 @@ import { AccountForm } from '@/components/account-form';
 import { AccountList } from '@/components/account-list';
 import { TransactionForm } from '@/components/transaction-form';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ChevronDown, Plus, TrendingDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatMoney } from '@/lib/currency';
 
 interface MainAccountsClientProps {
   initialAccounts: Account[];
@@ -22,12 +23,32 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
   const [txSheetOpen, setTxSheetOpen] = useState(false);
   const { accounts, setAccounts, addAccount, addTransaction, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
 
-  const totalBalance = useMemo(() => accounts.reduce((s, a) => s + a.currentBalance, 0), [accounts]);
+  const totalLocalBalance = useMemo(
+    () => accounts.filter((a) => !a.isForeignCurrency).reduce((s, a) => s + a.currentBalance, 0),
+    [accounts]
+  );
+  const totalForeignBalance = useMemo(
+    () => accounts.filter((a) => a.isForeignCurrency).reduce((s, a) => s + a.currentBalance, 0),
+    [accounts]
+  );
+
+  const formattedLocalTotal = useMemo(() => formatMoney(totalLocalBalance, 'ARS'), [totalLocalBalance]);
+  const formattedForeignTotal = useMemo(() => formatMoney(totalForeignBalance, 'USD'), [totalForeignBalance]);
+  const totalDigits = useMemo(() => formattedLocalTotal.replace(/\D/g, '').length, [formattedLocalTotal]);
+  const totalSizeClass = useMemo(() => {
+    if (totalDigits >= 14) return 'text-[clamp(2rem,8vw,3.4rem)]';
+    if (totalDigits >= 12) return 'text-[clamp(2.2rem,8.8vw,3.9rem)]';
+    return 'text-[clamp(2.4rem,9.8vw,4.6rem)]';
+  }, [totalDigits]);
 
   const recentMovements = useMemo(
     () =>
       accounts
-        .flatMap((a) => a.transactions.map((t) => ({ accountName: a.name, ...t })))
+        .flatMap((a) => a.transactions.map((t) => ({
+          accountName: a.name,
+          currency: a.isForeignCurrency ? 'USD' as const : 'ARS' as const,
+          ...t,
+        })))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 6),
     [accounts]
@@ -55,13 +76,19 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
         {/* Portfolio hero */}
         <section className="animate-fade-in mb-8 opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>
           <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
-            Total Portfolio
+            Total Portfolio (ARS)
           </p>
-          <h1 className="font-display text-5xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-            {totalBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+          <h1 className={cn('max-w-full font-display font-bold leading-[0.95] tracking-tight text-foreground', totalSizeClass)}>
+            {formattedLocalTotal}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-xs text-muted-foreground">
             <span>{accounts.length} {accounts.length === 1 ? 'account' : 'accounts'}</span>
+            {accounts.some((a) => a.isForeignCurrency) && (
+              <>
+                <span className="h-3 w-px bg-border" />
+                <span className="text-sky-300">USD subtotal: {formattedForeignTotal}</span>
+              </>
+            )}
             {accounts.length > 0 && <span className="h-3 w-px bg-border" />}
             {accounts.length > 0 && (
               <span className={cn('font-medium', isOnline ? 'text-primary' : 'text-rose-500')}>
@@ -118,7 +145,7 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
                             m.amount >= 0 ? 'text-emerald-500' : 'text-rose-500'
                           )}>
                             {m.amount >= 0 ? '+' : ''}
-                            {m.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                            {formatMoney(m.amount, m.currency)}
                           </span>
                         </div>
                       </li>
@@ -165,10 +192,10 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
         <button
           type="button"
           onClick={() => setTxSheetOpen(true)}
-          className="flex h-14 items-center gap-2.5 rounded-full bg-primary px-7 font-display text-sm font-bold text-primary-foreground shadow-2xl shadow-primary/30 transition-transform active:scale-95"
+          className="flex h-14 items-center gap-2.5 whitespace-nowrap rounded-full bg-primary px-7 font-display text-sm font-bold text-primary-foreground shadow-2xl shadow-primary/30 transition-transform active:scale-95"
         >
-          <Plus className="h-4 w-4" strokeWidth={3} />
-          New Transaction
+          <Plus className="h-4 w-4 shrink-0" strokeWidth={3} />
+          <span className="whitespace-nowrap">New Transaction</span>
         </button>
       </div>
 
@@ -183,7 +210,9 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
             <div className="h-1 w-10 rounded-full bg-border" />
           </div>
           <div className="px-4 pb-8 pt-2">
-            <h2 className="mb-4 font-display text-xl font-bold text-foreground">New Transaction</h2>
+            <SheetHeader className="mb-4">
+              <SheetTitle className="font-display text-xl font-bold text-foreground">New Transaction</SheetTitle>
+            </SheetHeader>
             <TransactionForm accounts={accounts} onAddTransaction={handleAddTransaction} />
           </div>
         </SheetContent>

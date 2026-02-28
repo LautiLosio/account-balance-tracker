@@ -1,297 +1,434 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
-import { Account, Transaction } from '@/types/schema'
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Account, Transaction } from "@/types/schema";
+
+type UndoEntry = {
+  accountId: number;
+  transaction: Transaction;
+};
 
 type SyncOperation =
   | {
-      id: string
-      kind: 'create_account'
-      account: Account
-      createdAt: number
-      attempts: number
+      id: string;
+      kind: "create_account";
+      account: Account;
+      undoEntries?: UndoEntry[];
+      holdUntil?: number;
+      createdAt: number;
+      attempts: number;
     }
   | {
-      id: string
-      kind: 'delete_account'
-      accountId: number
-      createdAt: number
-      attempts: number
+      id: string;
+      kind: "delete_account";
+      accountId: number;
+      undoEntries?: UndoEntry[];
+      holdUntil?: number;
+      createdAt: number;
+      attempts: number;
     }
   | {
-      id: string
-      kind: 'add_transaction'
-      accountId: number
+      id: string;
+      kind: "add_transaction";
+      accountId: number;
       payload: {
-        transaction: Transaction
-        toAccountId?: number
-        exchangeRate?: number
-      }
-      createdAt: number
-      attempts: number
-    }
+        transaction: Transaction;
+        toAccountId?: number;
+        exchangeRate?: number;
+      };
+      undoEntries?: UndoEntry[];
+      holdUntil?: number;
+      createdAt: number;
+      attempts: number;
+    };
 
 type QueueDraft =
   | {
-      kind: 'create_account'
-      account: Account
+      kind: "create_account";
+      account: Account;
+      undoEntries?: UndoEntry[];
+      holdUntil?: number;
     }
   | {
-      kind: 'delete_account'
-      accountId: number
+      kind: "delete_account";
+      accountId: number;
+      undoEntries?: UndoEntry[];
+      holdUntil?: number;
     }
   | {
-      kind: 'add_transaction'
-      accountId: number
+      kind: "add_transaction";
+      accountId: number;
       payload: {
-        transaction: Transaction
-        toAccountId?: number
-        exchangeRate?: number
-      }
-    }
+        transaction: Transaction;
+        toAccountId?: number;
+        exchangeRate?: number;
+      };
+      undoEntries?: UndoEntry[];
+      holdUntil?: number;
+    };
 
-const ACCOUNTS_CACHE_KEY = 'abt.accounts.cache.v1'
-const SYNC_QUEUE_KEY = 'abt.sync.queue.v1'
+const ACCOUNTS_CACHE_KEY = "abt.accounts.cache.v1";
+const SYNC_QUEUE_KEY = "abt.sync.queue.v1";
+const UNDO_WINDOW_MS = 7000;
 
-const parseJSON = <T,>(value: string | null, fallback: T): T => {
-  if (!value) return fallback
+const parseJSON = <T>(value: string | null, fallback: T): T => {
+  if (!value) return fallback;
 
   try {
-    return JSON.parse(value) as T
+    return JSON.parse(value) as T;
   } catch {
-    return fallback
+    return fallback;
   }
-}
+};
 
 const writeStorage = (key: string, value: unknown) => {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(key, JSON.stringify(value))
-}
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(key, JSON.stringify(value));
+};
 
-const generateOpId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-const generateAccountId = () => Date.now() * 1000 + Math.floor(Math.random() * 1000)
+const generateOpId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+const generateAccountId = () =>
+  Date.now() * 1000 + Math.floor(Math.random() * 1000);
 
 const isNetworkIssue = (error: unknown) => {
-  if (!(error instanceof Error)) return false
-  return /fetch|network|failed/i.test(error.message)
-}
+  if (!(error instanceof Error)) return false;
+  return /fetch|network|failed/i.test(error.message);
+};
 
 const mergeAccountsById = (primary: Account[], secondary: Account[]) => {
-  const map = new Map<number, Account>()
+  const map = new Map<number, Account>();
 
   for (const account of secondary) {
-    map.set(account.id, account)
+    map.set(account.id, account);
   }
 
   for (const account of primary) {
-    map.set(account.id, account)
+    map.set(account.id, account);
   }
 
-  return [...map.values()].sort((a, b) => a.id - b.id)
-}
+  return [...map.values()].sort((a, b) => a.id - b.id);
+};
+
+const isSameTransaction = (left: Transaction, right: Transaction) =>
+  left.id === right.id &&
+  left.type === right.type &&
+  left.amount === right.amount &&
+  left.description === right.description &&
+  left.fromAccount === right.fromAccount &&
+  left.toAccount === right.toAccount;
 
 export function useAccountData(initialAccounts: Account[]) {
-  const [accounts, setAccounts] = useState<Account[]>(initialAccounts)
-  const [queue, setQueue] = useState<SyncOperation[]>([])
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
-  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
+  const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
+  const [queue, setQueue] = useState<SyncOperation[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
-  const queueRef = useRef<SyncOperation[]>([])
-  const syncingRef = useRef(false)
-  const accountsRef = useRef<Account[]>(initialAccounts)
+  const queueRef = useRef<SyncOperation[]>([]);
+  const syncingRef = useRef(false);
+  const accountsRef = useRef<Account[]>(initialAccounts);
 
   const persistAccounts = useCallback((nextAccounts: Account[]) => {
-    writeStorage(ACCOUNTS_CACHE_KEY, nextAccounts)
-  }, [])
+    writeStorage(ACCOUNTS_CACHE_KEY, nextAccounts);
+  }, []);
 
   const applyAccounts = useCallback(
     (updater: (prev: Account[]) => Account[]) => {
-      setAccounts(prev => {
-        const next = updater(prev)
-        persistAccounts(next)
-        return next
-      })
+      setAccounts((prev) => {
+        const next = updater(prev);
+        persistAccounts(next);
+        return next;
+      });
     },
-    [persistAccounts]
-  )
+    [persistAccounts],
+  );
 
   const pushQueue = useCallback((op: QueueDraft) => {
-    setQueue(prev => {
-      const next: SyncOperation[] = [...prev, { ...op, id: generateOpId(), createdAt: Date.now(), attempts: 0 }]
-      queueRef.current = next
-      writeStorage(SYNC_QUEUE_KEY, next)
-      return next
-    })
-  }, [])
+    const queuedOp: SyncOperation = {
+      ...op,
+      id: generateOpId(),
+      createdAt: Date.now(),
+      attempts: 0,
+    };
+
+    setQueue((prev) => {
+      const next: SyncOperation[] = [...prev, queuedOp];
+      queueRef.current = next;
+      writeStorage(SYNC_QUEUE_KEY, next);
+      return next;
+    });
+    return queuedOp.id;
+  }, []);
 
   const setQueueAndPersist = useCallback((next: SyncOperation[]) => {
-    queueRef.current = next
-    setQueue(next)
-    writeStorage(SYNC_QUEUE_KEY, next)
-  }, [])
+    queueRef.current = next;
+    setQueue(next);
+    writeStorage(SYNC_QUEUE_KEY, next);
+  }, []);
 
   const fetchAccounts = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
       try {
-        const response = await fetch('/api/accounts', { cache: 'no-store' })
+        const response = await fetch("/api/accounts", { cache: "no-store" });
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch accounts: ${response.status}`)
+          throw new Error(`Failed to fetch accounts: ${response.status}`);
         }
 
-        const data = (await response.json()) as { accounts?: Account[] }
-        const fresh = data.accounts || []
-        setAccounts(fresh)
-        persistAccounts(fresh)
-        setLastSyncAt(new Date().toISOString())
+        const data = (await response.json()) as { accounts?: Account[] };
+        const fresh = data.accounts || [];
+        setAccounts(fresh);
+        persistAccounts(fresh);
+        setLastSyncAt(new Date().toISOString());
       } catch (error) {
         if (!silent) {
-          console.error('Error fetching accounts:', error)
-          toast.error('Offline mode: working from local cache')
+          console.error("Error fetching accounts:", error);
+          toast.error(
+            isOnline ? "Could not refresh accounts" : "Offline mode enabled",
+            {
+              description: isOnline
+                ? "Showing local data. Try syncing again."
+                : "Using local cache until connection is restored.",
+            },
+          );
         }
       }
     },
-    [persistAccounts]
-  )
+    [isOnline, persistAccounts],
+  );
 
-  const runOperation = useCallback(async (operation: SyncOperation): Promise<'success' | 'retry' | 'drop'> => {
-    try {
-      if (operation.kind === 'create_account') {
-        const response = await fetch('/api/accounts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ account: operation.account }),
-        })
+  const runOperation = useCallback(
+    async (operation: SyncOperation): Promise<"success" | "retry" | "drop"> => {
+      try {
+        if (operation.kind === "create_account") {
+          const response = await fetch("/api/accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ account: operation.account }),
+          });
 
-        if (response.ok) return 'success'
-        if (response.status === 409) return 'drop'
-        if (response.status >= 500) return 'retry'
-        return 'drop'
+          if (response.ok) return "success";
+          if (response.status === 409) return "drop";
+          if (response.status >= 500) return "retry";
+          return "drop";
+        }
+
+        if (operation.kind === "delete_account") {
+          const response = await fetch(`/api/accounts/${operation.accountId}`, {
+            method: "DELETE",
+          });
+
+          if (response.ok) return "success";
+          if (response.status === 404) return "drop";
+          if (response.status >= 500) return "retry";
+          return "drop";
+        }
+
+        const response = await fetch(
+          `/api/accounts/${operation.accountId}/transactions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(operation.payload),
+          },
+        );
+
+        if (response.ok) return "success";
+        if (response.status >= 500) return "retry";
+        return "drop";
+      } catch (error) {
+        if (isNetworkIssue(error)) return "retry";
+        return "drop";
       }
-
-      if (operation.kind === 'delete_account') {
-        const response = await fetch(`/api/accounts/${operation.accountId}`, { method: 'DELETE' })
-
-        if (response.ok) return 'success'
-        if (response.status === 404) return 'drop'
-        if (response.status >= 500) return 'retry'
-        return 'drop'
-      }
-
-      const response = await fetch(`/api/accounts/${operation.accountId}/transactions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(operation.payload),
-      })
-
-      if (response.ok) return 'success'
-      if (response.status >= 500) return 'retry'
-      return 'drop'
-    } catch (error) {
-      if (isNetworkIssue(error)) return 'retry'
-      return 'drop'
-    }
-  }, [])
+    },
+    [],
+  );
 
   const flushQueue = useCallback(async () => {
-    if (typeof window === 'undefined') return
-    if (!window.navigator.onLine) return
-    if (syncingRef.current) return
-    if (queueRef.current.length === 0) return
+    if (typeof window === "undefined") return;
+    if (!window.navigator.onLine) return;
+    if (syncingRef.current) return;
+    if (queueRef.current.length === 0) return;
 
-    syncingRef.current = true
-    setIsSyncing(true)
+    syncingRef.current = true;
+    setIsSyncing(true);
 
-    let pending = [...queueRef.current]
-    let hadSuccess = false
+    let pending = [...queueRef.current];
+    let hadSuccess = false;
 
     while (pending.length > 0) {
-      const current = pending[0]
-      const result = await runOperation(current)
+      const current = pending[0];
+      if (current.holdUntil && current.holdUntil > Date.now()) {
+        break;
+      }
 
-      if (result === 'success' || result === 'drop') {
-        pending = pending.slice(1)
-        hadSuccess = true
-        continue
+      const result = await runOperation(current);
+
+      if (result === "success" || result === "drop") {
+        pending = pending.slice(1);
+        hadSuccess = true;
+        continue;
       }
 
       pending[0] = {
         ...current,
         attempts: current.attempts + 1,
-      }
-      break
+      };
+      break;
     }
 
-    setQueueAndPersist(pending)
+    setQueueAndPersist(pending);
 
     if (hadSuccess) {
-      await fetchAccounts({ silent: true })
+      await fetchAccounts({ silent: true });
     }
 
-    setIsSyncing(false)
-    syncingRef.current = false
-  }, [fetchAccounts, runOperation, setQueueAndPersist])
+    setIsSyncing(false);
+    syncingRef.current = false;
+  }, [fetchAccounts, runOperation, setQueueAndPersist]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === "undefined") return;
 
-    const cachedAccounts = parseJSON<Account[]>(window.localStorage.getItem(ACCOUNTS_CACHE_KEY), [])
-    const cachedQueue = parseJSON<SyncOperation[]>(window.localStorage.getItem(SYNC_QUEUE_KEY), [])
+    const cachedAccounts = parseJSON<Account[]>(
+      window.localStorage.getItem(ACCOUNTS_CACHE_KEY),
+      [],
+    );
+    const cachedQueue = parseJSON<SyncOperation[]>(
+      window.localStorage.getItem(SYNC_QUEUE_KEY),
+      [],
+    );
 
     if (cachedAccounts.length > 0) {
-      const merged = mergeAccountsById(initialAccounts, cachedAccounts)
-      setAccounts(merged)
+      const merged = mergeAccountsById(initialAccounts, cachedAccounts);
+      setAccounts(merged);
     }
 
     if (cachedQueue.length > 0) {
-      setQueueAndPersist(cachedQueue)
+      setQueueAndPersist(cachedQueue);
     }
 
-    setIsOnline(window.navigator.onLine)
-  }, [initialAccounts, setQueueAndPersist])
+    setIsOnline(window.navigator.onLine);
+  }, [initialAccounts, setQueueAndPersist]);
 
   useEffect(() => {
-    accountsRef.current = accounts
-  }, [accounts])
+    accountsRef.current = accounts;
+  }, [accounts]);
 
   useEffect(() => {
     const handleOnline = () => {
-      setIsOnline(true)
-      flushQueue()
-    }
+      setIsOnline(true);
+      flushQueue();
+    };
 
-    const handleOffline = () => setIsOnline(false)
+    const handleOffline = () => setIsOnline(false);
 
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [flushQueue])
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [flushQueue]);
 
   useEffect(() => {
-    if (queue.length === 0) return
-    flushQueue()
-  }, [queue.length, flushQueue])
+    if (queue.length === 0) return;
+
+    const now = Date.now();
+    const firstHoldUntil = queue[0]?.holdUntil;
+
+    if (firstHoldUntil && firstHoldUntil > now) {
+      const timer = window.setTimeout(
+        () => {
+          flushQueue();
+        },
+        firstHoldUntil - now + 25,
+      );
+
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }
+
+    flushQueue();
+  }, [queue, flushQueue]);
+
+  const undoQueuedTransaction = useCallback(
+    (operationId: string) => {
+      const currentQueue = queueRef.current;
+      const operation = currentQueue.find(
+        (op) => op.id === operationId && op.kind === "add_transaction",
+      );
+
+      if (!operation || !operation.undoEntries?.length) {
+        toast.error("Undo not available", {
+          description:
+            "This transaction was already synced or can no longer be reverted.",
+        });
+        return;
+      }
+
+      setQueueAndPersist(currentQueue.filter((op) => op.id !== operationId));
+
+      applyAccounts((prev) => {
+        const next = prev.map((account) => ({
+          ...account,
+          transactions: [...account.transactions],
+        }));
+
+        for (const undoEntry of operation.undoEntries || []) {
+          const account = next.find((acc) => acc.id === undoEntry.accountId);
+          if (!account) continue;
+
+          const exactIndex = account.transactions.findIndex((tx) =>
+            isSameTransaction(tx, undoEntry.transaction),
+          );
+          const fallbackIndex = account.transactions.findIndex(
+            (tx) => tx.id === undoEntry.transaction.id,
+          );
+          const txIndex = exactIndex !== -1 ? exactIndex : fallbackIndex;
+
+          if (txIndex === -1) continue;
+
+          const [removed] = account.transactions.splice(txIndex, 1);
+          account.currentBalance -= removed.amount;
+        }
+
+        return next;
+      });
+
+      toast.success("Transaction undone", {
+        description: isOnline
+          ? "Undo applied before sync."
+          : "Undo saved locally and will stay reverted.",
+      });
+    },
+    [applyAccounts, isOnline, setQueueAndPersist],
+  );
 
   const deleteAccount = async (id: number) => {
-    applyAccounts(prev => prev.filter(account => account.id !== id))
+    applyAccounts((prev) => prev.filter((account) => account.id !== id));
 
     pushQueue({
-      kind: 'delete_account',
+      kind: "delete_account",
       accountId: id,
-    })
+    });
 
-    toast.success('Account removed locally', {
-      description: 'Will sync to server automatically.',
-    })
-  }
+    toast.success("Account removed", {
+      description: isOnline
+        ? "Syncing deletion to the server now."
+        : "Deleted locally. It will sync when online.",
+    });
+  };
 
-  const addAccount = async (name: string, initialBalance: number, isForeignCurrency: boolean) => {
+  const addAccount = async (
+    name: string,
+    initialBalance: number,
+    isForeignCurrency: boolean,
+  ) => {
     const newAccount: Account = {
       id: generateAccountId(),
       name,
@@ -299,60 +436,65 @@ export function useAccountData(initialAccounts: Account[]) {
       currentBalance: initialBalance,
       isForeignCurrency,
       transactions: [],
-    }
+    };
 
-    applyAccounts(prev => [...prev, newAccount])
+    applyAccounts((prev) => [...prev, newAccount]);
 
     pushQueue({
-      kind: 'create_account',
+      kind: "create_account",
       account: newAccount,
-    })
+    });
 
-    toast.success('Account created instantly', {
-      description: 'Saved offline-first and syncing in the background.',
-    })
-  }
+    toast.success("Account created", {
+      description: isOnline
+        ? "Saved and syncing in the background."
+        : "Saved locally. It will sync when online.",
+    });
+  };
 
   const addTransaction = async (
     selectedAccount: number,
     amount: number,
-    type: 'income' | 'expense' | 'transfer',
+    type: "income" | "expense" | "transfer",
     transferTo?: number,
-    exchangeRate?: number
+    exchangeRate?: number,
   ) => {
-    const transactionAmount = type === 'expense' ? -Math.abs(amount) : Math.abs(amount)
-    const currentAccounts = accountsRef.current
-    const updatedAccounts = currentAccounts.map(account => ({
+    const transactionAmount =
+      type === "expense" ? -Math.abs(amount) : Math.abs(amount);
+    const currentAccounts = accountsRef.current;
+    const updatedAccounts = currentAccounts.map((account) => ({
       ...account,
       transactions: [...account.transactions],
-    }))
+    }));
 
-    const transactionId = Date.now()
+    const transactionId = Date.now();
     const baseTransaction: Transaction = {
       id: transactionId,
       date: new Date(),
-      description: type === 'transfer' ? 'Transfer' : type,
+      description: type === "transfer" ? "Transfer" : type,
       amount: transactionAmount,
       type,
       fromAccount: selectedAccount,
-    }
+    };
 
-    if (type === 'transfer' && transferTo !== undefined) {
-      const fromAccount = updatedAccounts.find(acc => acc.id === selectedAccount)
-      const toAccount = updatedAccounts.find(acc => acc.id === transferTo)
+    if (type === "transfer" && transferTo !== undefined) {
+      const fromAccount = updatedAccounts.find(
+        (acc) => acc.id === selectedAccount,
+      );
+      const toAccount = updatedAccounts.find((acc) => acc.id === transferTo);
 
       if (!fromAccount || !toAccount) {
-        toast.error('Transfer accounts not found')
-        return
+        toast.error("Transfer accounts not found");
+        return;
       }
 
-      let transferAmount = Math.abs(transactionAmount)
-      const rate = exchangeRate || 1
+      let transferAmount = Math.abs(transactionAmount);
+      const rate = exchangeRate || 1;
 
       if (fromAccount.isForeignCurrency || toAccount.isForeignCurrency) {
         transferAmount = fromAccount.isForeignCurrency
           ? Math.abs(transactionAmount) * rate
-          : Math.abs(transactionAmount) * (1 / rate)
+          : Math.abs(transactionAmount) * (1 / rate);
       }
 
       const outTransaction: Transaction = {
@@ -360,80 +502,105 @@ export function useAccountData(initialAccounts: Account[]) {
         amount: -Math.abs(transactionAmount),
         fromAccount: selectedAccount,
         toAccount: transferTo,
-        exchangeRate: fromAccount.isForeignCurrency || toAccount.isForeignCurrency ? rate : undefined,
+        exchangeRate:
+          fromAccount.isForeignCurrency || toAccount.isForeignCurrency
+            ? rate
+            : undefined,
         description: `Transfer to ${toAccount.name}`,
-      }
+      };
 
       const inTransaction: Transaction = {
         ...baseTransaction,
         amount: transferAmount,
         fromAccount: selectedAccount,
         toAccount: transferTo,
-        exchangeRate: fromAccount.isForeignCurrency || toAccount.isForeignCurrency ? rate : undefined,
+        exchangeRate:
+          fromAccount.isForeignCurrency || toAccount.isForeignCurrency
+            ? rate
+            : undefined,
         description: `Transfer from ${fromAccount.name}`,
-      }
+      };
 
-      fromAccount.currentBalance += outTransaction.amount
-      toAccount.currentBalance += inTransaction.amount
-      fromAccount.transactions.push(outTransaction)
-      toAccount.transactions.push(inTransaction)
+      fromAccount.currentBalance += outTransaction.amount;
+      toAccount.currentBalance += inTransaction.amount;
+      fromAccount.transactions.push(outTransaction);
+      toAccount.transactions.push(inTransaction);
 
-      setAccounts(updatedAccounts)
-      persistAccounts(updatedAccounts)
+      setAccounts(updatedAccounts);
+      persistAccounts(updatedAccounts);
 
-      pushQueue({
-        kind: 'add_transaction',
+      const operationId = pushQueue({
+        kind: "add_transaction",
         accountId: selectedAccount,
         payload: {
           transaction: outTransaction,
           toAccountId: transferTo,
           exchangeRate: outTransaction.exchangeRate,
         },
-      })
+        undoEntries: [
+          { accountId: selectedAccount, transaction: outTransaction },
+          { accountId: transferTo, transaction: inTransaction },
+        ],
+        holdUntil: Date.now() + UNDO_WINDOW_MS,
+      });
 
-      toast.success('Transfer recorded', {
-        description: 'Synced in background when online.',
-      })
+      toast.success("Transfer recorded", {
+        description: isOnline
+          ? "Syncing now.."
+          : "Saved locally. It will sync when online.",
+        action: {
+          label: "Undo",
+          onClick: () => undoQueuedTransaction(operationId),
+        },
+      });
 
-      return
+      return;
     }
 
-    const account = updatedAccounts.find(acc => acc.id === selectedAccount)
+    const account = updatedAccounts.find((acc) => acc.id === selectedAccount);
 
     if (!account) {
-      toast.error('Account not found')
-      return
+      toast.error("Account not found");
+      return;
     }
 
     const transaction: Transaction = {
       ...baseTransaction,
-      amount: type === 'income' ? Math.abs(amount) : -Math.abs(amount),
-    }
+      amount: type === "income" ? Math.abs(amount) : -Math.abs(amount),
+    };
 
-    account.currentBalance += transaction.amount
-    account.transactions.push(transaction)
+    account.currentBalance += transaction.amount;
+    account.transactions.push(transaction);
 
-    setAccounts(updatedAccounts)
-    persistAccounts(updatedAccounts)
+    setAccounts(updatedAccounts);
+    persistAccounts(updatedAccounts);
 
-    pushQueue({
-      kind: 'add_transaction',
+    const operationId = pushQueue({
+      kind: "add_transaction",
       accountId: selectedAccount,
       payload: {
         transaction,
       },
-    })
+      undoEntries: [{ accountId: selectedAccount, transaction }],
+      holdUntil: Date.now() + UNDO_WINDOW_MS,
+    });
 
-    toast.success('Transaction recorded', {
-      description: 'Synced in background when online.',
-    })
-  }
+    toast.success(`${type === "income" ? "Income" : "Expense"} recorded`, {
+      description: isOnline
+        ? "Syncing now."
+        : "Saved locally. It will sync when online.",
+      action: {
+        label: "Undo",
+        onClick: () => undoQueuedTransaction(operationId),
+      },
+    });
+  };
 
   return {
     accounts,
     setAccounts: (next: Account[]) => {
-      setAccounts(next)
-      persistAccounts(next)
+      setAccounts(next);
+      persistAccounts(next);
     },
     fetchAccounts,
     deleteAccount,
@@ -444,5 +611,5 @@ export function useAccountData(initialAccounts: Account[]) {
     isOnline,
     pendingSyncCount: queue.length,
     lastSyncAt,
-  }
+  };
 }

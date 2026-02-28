@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import { ArrowRightLeft, MinusCircle, PlusCircle } from 'lucide-react';
+import { NumericFormat } from 'react-number-format';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,11 +23,43 @@ interface TransactionFormProps {
   ) => void;
 }
 
-const TYPE_CONFIG: Record<TxType, { label: string; icon: typeof PlusCircle; active: string }> = {
-  income: { label: 'Income', icon: PlusCircle, active: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' },
-  expense: { label: 'Expense', icon: MinusCircle, active: 'border-rose-500/50 bg-rose-500/10 text-rose-400' },
-  transfer: { label: 'Transfer', icon: ArrowRightLeft, active: 'border-primary/50 bg-primary/10 text-primary' },
+type TxVisualConfig = {
+  label: string;
+  icon: typeof PlusCircle;
+  selected: string;
+  unselected: string;
+  submit: string;
 };
+
+const TYPE_CONFIG: Record<TxType, TxVisualConfig> = {
+  income: {
+    label: 'Income',
+    icon: PlusCircle,
+    selected: 'border-emerald-400/70 bg-emerald-500/20 text-emerald-200',
+    unselected: 'border-transparent text-emerald-300/70 hover:border-emerald-400/40 hover:bg-emerald-500/10 hover:text-emerald-200',
+    submit: '!bg-emerald-500 !text-white hover:!bg-emerald-600',
+  },
+  expense: {
+    label: 'Expense',
+    icon: MinusCircle,
+    selected: 'border-rose-400/70 bg-rose-500/20 text-rose-200',
+    unselected: 'border-transparent text-rose-300/70 hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-200',
+    submit: '!bg-rose-500 !text-white hover:!bg-rose-600',
+  },
+  transfer: {
+    label: 'Transfer',
+    icon: ArrowRightLeft,
+    selected: 'border-sky-400/70 bg-sky-500/20 text-sky-200',
+    unselected: 'border-transparent text-sky-300/70 hover:border-sky-400/40 hover:bg-sky-500/10 hover:text-sky-200',
+    submit: '!bg-sky-500 !text-sky-950 hover:!bg-sky-400',
+  },
+};
+
+const TYPE_COLOR_CONFIGS = {
+  income: { selected: TYPE_CONFIG.income.selected, unselected: TYPE_CONFIG.income.unselected },
+  expense: { selected: TYPE_CONFIG.expense.selected, unselected: TYPE_CONFIG.expense.unselected },
+  transfer: { selected: TYPE_CONFIG.transfer.selected, unselected: TYPE_CONFIG.transfer.unselected },
+} as const;
 
 export function TransactionForm({ accounts, onAddTransaction }: TransactionFormProps) {
   const [selectedAccount, setSelectedAccount] = useState<number | null>(null);
@@ -34,6 +67,34 @@ export function TransactionForm({ accounts, onAddTransaction }: TransactionFormP
   const [type, setType] = useState<TxType>('income');
   const [transferTo, setTransferTo] = useState<number | null>(null);
   const [exchangeRate, setExchangeRate] = useState('');
+  const locale = useSyncExternalStore(
+    () => () => undefined,
+    () => (typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'es-AR'),
+    () => 'es-AR'
+  );
+
+  const { groupSeparator, decimalSeparator } = useMemo(() => {
+    try {
+      const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
+      return {
+        groupSeparator: parts.find((part) => part.type === 'group')?.value ?? '.',
+        decimalSeparator: parts.find((part) => part.type === 'decimal')?.value ?? ',',
+      };
+    } catch {
+      return { groupSeparator: '.', decimalSeparator: ',' };
+    }
+  }, [locale]);
+
+  const amountPlaceholder = useMemo(() => {
+    try {
+      return new Intl.NumberFormat(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(0);
+    } catch {
+      return '0,00';
+    }
+  }, [locale]);
 
   const needsExchangeRate =
     type === 'transfer' &&
@@ -76,23 +137,19 @@ export function TransactionForm({ accounts, onAddTransaction }: TransactionFormP
       {/* Type selector */}
       <ToggleGroup
         className="grid grid-cols-3 gap-1 rounded-xl border border-border bg-muted/30 p-1"
+        colorConfigs={TYPE_COLOR_CONFIGS}
         type="single"
-        variant="outline"
         value={type}
         onValueChange={(v) => setType((v || 'income') as TxType)}
       >
         {(Object.entries(TYPE_CONFIG) as [TxType, typeof TYPE_CONFIG[TxType]][]).map(([key, cfg]) => {
           const Icon = cfg.icon;
-          const isActive = type === key;
           return (
             <ToggleGroupItem
               key={key}
               value={key}
               disabled={key === 'transfer' && accounts.length < 2}
-              className={cn(
-                'h-10 gap-1.5 rounded-lg border font-display text-xs font-bold transition-all',
-                isActive ? cfg.active : 'border-transparent text-muted-foreground hover:text-foreground'
-              )}
+              className="h-10 gap-1.5 rounded-lg border font-display text-xs font-bold transition-all data-[state=on]:scale-[1.01]"
             >
               <Icon className="h-3.5 w-3.5" />
               {cfg.label}
@@ -102,7 +159,7 @@ export function TransactionForm({ accounts, onAddTransaction }: TransactionFormP
       </ToggleGroup>
 
       {/* Account + Amount row */}
-      <div className="grid grid-cols-[1fr_auto] gap-2">
+      <div className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] gap-2">
         <Select onValueChange={(v) => setSelectedAccount(Number.parseInt(v, 10))}>
           <SelectTrigger className="h-12 rounded-xl text-sm">
             <SelectValue placeholder="Select account" />
@@ -111,21 +168,24 @@ export function TransactionForm({ accounts, onAddTransaction }: TransactionFormP
             {accounts.map((a) => (
               <SelectItem key={a.id} value={a.id.toString()}>
                 <span className="font-semibold">{a.name}</span>
-                <span className="ml-2 font-mono text-xs text-muted-foreground tabular">
-                  {a.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                </span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        <Input
-          type="number"
-          placeholder="0.00"
+        <NumericFormat
+          customInput={Input}
           value={amount}
-          min={0}
-          onChange={(e) => setAmount(e.target.value)}
-          className="h-12 w-32 rounded-xl text-center font-mono text-sm font-semibold tabular sm:w-36"
+          valueIsNumericString
+          allowNegative={false}
+          decimalScale={2}
+          thousandSeparator={groupSeparator}
+          decimalSeparator={decimalSeparator}
+          allowedDecimalSeparators={[decimalSeparator, decimalSeparator === ',' ? '.' : ',']}
+          inputMode="decimal"
+          placeholder={amountPlaceholder}
+          onValueChange={({ value }) => setAmount(value)}
+          className="h-12 rounded-xl text-right font-mono text-base font-semibold tabular"
         />
       </div>
 
@@ -158,11 +218,10 @@ export function TransactionForm({ accounts, onAddTransaction }: TransactionFormP
       <Button
         disabled={disabled}
         onClick={handleSubmit}
+        variant="ghost"
         className={cn(
           'h-12 w-full rounded-xl font-display text-sm font-bold transition-all active:scale-[0.98]',
-          type === 'expense' && !disabled && 'bg-rose-500 text-white hover:bg-rose-600',
-          type === 'income' && !disabled && 'bg-emerald-500 text-white hover:bg-emerald-600',
-          type === 'transfer' && !disabled && 'bg-primary text-primary-foreground hover:opacity-90',
+          disabled ? 'border border-border bg-muted/60 text-muted-foreground' : TYPE_CONFIG[type].submit,
         )}
       >
         Save {type.charAt(0).toUpperCase() + type.slice(1)}
