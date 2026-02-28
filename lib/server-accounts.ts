@@ -1,4 +1,4 @@
-import { getSession } from '@auth0/nextjs-auth0';
+import { auth0 } from '@/lib/auth0';
 import { getAccount, getUserAccounts } from '@/lib/db';
 import { Account } from '@/types/schema';
 
@@ -10,7 +10,7 @@ export interface SessionUserSummary {
 
 export async function getAuthenticatedUser() {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
     return session?.user;
   } catch (error) {
     console.error('Failed to read session:', error);

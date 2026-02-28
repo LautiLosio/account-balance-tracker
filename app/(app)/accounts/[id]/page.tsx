@@ -5,11 +5,12 @@ import { getAuthenticatedUser, getInitialAccountById, getInitialAccounts } from 
 export const dynamic = 'force-dynamic';
 
 interface AccountHistoryPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function AccountHistoryPage({ params }: AccountHistoryPageProps) {
-  const accountId = Number(params.id);
+  const { id } = await params;
+  const accountId = Number(id);
 
   if (Number.isNaN(accountId)) {
     notFound();

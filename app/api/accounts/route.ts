@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@auth0/nextjs-auth0';
+import { auth0 } from '@/lib/auth0';
 import { createAccount, getUserAccounts } from '@/lib/db';
 import { Account } from '@/types/schema';
 import { validateServerEnv } from '@/lib/env';
@@ -9,7 +9,7 @@ validateServerEnv();
 // GET handler to fetch all accounts for the authenticated user
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
 
     // Check if user is authenticated
     if (!session || !session.user) {
@@ -29,7 +29,7 @@ export async function GET() {
 // POST handler to create an account for the authenticated user
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
 
     // Check if user is authenticated
     if (!session || !session.user) {

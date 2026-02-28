@@ -1,10 +1,4 @@
-const AUTH0_REQUIRED_VARS = [
-  'AUTH0_SECRET',
-  'AUTH0_BASE_URL',
-  'AUTH0_ISSUER_BASE_URL',
-  'AUTH0_CLIENT_ID',
-  'AUTH0_CLIENT_SECRET'
-] as const;
+const AUTH0_ALWAYS_REQUIRED_VARS = ['AUTH0_SECRET', 'AUTH0_CLIENT_ID', 'AUTH0_CLIENT_SECRET'] as const;
 
 const KV_REST_REQUIRED_VARS = ['KV_REST_API_URL', 'KV_REST_API_TOKEN'] as const;
 
@@ -18,10 +12,19 @@ function hasEnv(name: string): boolean {
 function getMissingVariables(): string[] {
   const missing: string[] = [];
 
-  for (const key of AUTH0_REQUIRED_VARS) {
+  for (const key of AUTH0_ALWAYS_REQUIRED_VARS) {
     if (!hasEnv(key)) {
       missing.push(key);
     }
+  }
+
+  // Support both v3-style and v4-style Auth0 env var names.
+  if (!hasEnv('AUTH0_BASE_URL') && !hasEnv('APP_BASE_URL')) {
+    missing.push('AUTH0_BASE_URL or APP_BASE_URL');
+  }
+
+  if (!hasEnv('AUTH0_ISSUER_BASE_URL') && !hasEnv('AUTH0_DOMAIN')) {
+    missing.push('AUTH0_ISSUER_BASE_URL or AUTH0_DOMAIN');
   }
 
   const hasKvUrl = hasEnv('KV_URL');

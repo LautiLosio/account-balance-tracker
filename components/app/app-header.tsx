@@ -65,6 +65,8 @@ export function AppHeader({ accounts, setAccounts, user }: AppHeaderProps) {
               <p className="font-medium">{user.name}</p>
               <p className="text-sm text-muted-foreground">{user.email}</p>
             </div>
+            {/* Auth0 recommends plain anchors for auth endpoints to avoid client-side interception. */}
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/api/auth/logout" className="mt-auto block">
               <Button variant="outline" className="w-full">
                 Sign Out

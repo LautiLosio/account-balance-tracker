@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@auth0/nextjs-auth0';
+import { auth0 } from '@/lib/auth0';
 import { deleteAccount, getAccount, updateAccount } from '@/lib/db';
 import { Account } from '@/types/schema';
 import { validateServerEnv } from '@/lib/env';
@@ -7,9 +7,9 @@ import { validateServerEnv } from '@/lib/env';
 validateServerEnv();
 
 // GET handler to fetch a specific account
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
 
     // Check if user is authenticated
     if (!session || !session.user) {
@@ -17,7 +17,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const userId = session.user.sub;
-    const accountId = Number.parseInt(params.id, 10);
+    const { id } = await context.params;
+    const accountId = Number.parseInt(id, 10);
 
     if (Number.isNaN(accountId)) {
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });
@@ -37,9 +38,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // PUT handler to update a specific account
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
 
     // Check if user is authenticated
     if (!session || !session.user) {
@@ -47,7 +48,8 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     const userId = session.user.sub;
-    const accountId = Number.parseInt(params.id, 10);
+    const { id } = await context.params;
+    const accountId = Number.parseInt(id, 10);
 
     if (Number.isNaN(accountId)) {
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });
@@ -73,9 +75,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 // DELETE handler to delete a specific account
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
 
     // Check if user is authenticated
     if (!session || !session.user) {
@@ -83,7 +85,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     const userId = session.user.sub;
-    const accountId = Number.parseInt(params.id, 10);
+    const { id } = await context.params;
+    const accountId = Number.parseInt(id, 10);
 
     if (Number.isNaN(accountId)) {
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });

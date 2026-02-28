@@ -14,6 +14,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <p className="mt-2 text-muted-foreground">
             Sign in to log and track movements between your accounts.
           </p>
+          {/* Auth0 recommends plain anchors for auth endpoints to avoid client-side interception. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
           <a href="/api/auth/login" className="mt-6 block">
             <Button className="w-full">Sign In</Button>
           </a>

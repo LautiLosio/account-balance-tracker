@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@auth0/nextjs-auth0';
+import { auth0 } from '@/lib/auth0';
 import { appendTransaction, getAccount, transferBetweenAccounts } from '@/lib/db';
 import { Transaction } from '@/types/schema';
 import { validateServerEnv } from '@/lib/env';
@@ -7,9 +7,9 @@ import { validateServerEnv } from '@/lib/env';
 validateServerEnv();
 
 // POST handler to add a transaction to an account
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
 
     // Check if user is authenticated
     if (!session || !session.user) {
@@ -17,7 +17,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const userId = session.user.sub;
-    const accountId = Number.parseInt(params.id, 10);
+    const { id } = await context.params;
+    const accountId = Number.parseInt(id, 10);
 
     if (Number.isNaN(accountId)) {
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });
