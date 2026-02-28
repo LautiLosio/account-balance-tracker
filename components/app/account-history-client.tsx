@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Account } from '@/types/schema';
 import { SessionUserSummary } from '@/lib/server-accounts';
 import { useAccountData } from '@/hooks/useAccountData';
@@ -21,7 +21,7 @@ export function AccountHistoryClient({ accountId, initialAccounts, user }: Accou
   const account = accounts.find((item) => item.id === accountId);
 
   return (
-    <div className="min-h-[calc(100vh-3.5rem)]">
+    <div className="min-h-[calc(100vh-3rem)]">
       <AppHeader
         accounts={accounts}
         setAccounts={setAccounts}
@@ -31,13 +31,13 @@ export function AccountHistoryClient({ accountId, initialAccounts, user }: Accou
         isOnline={isOnline}
         onSyncNow={syncNow}
       />
-      <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="mx-auto max-w-screen-lg space-y-5 px-4 pb-12 pt-5 sm:px-6 sm:pt-7">
         <Link
           href="/accounts"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1 font-display text-sm font-bold text-muted-foreground transition-colors hover:text-foreground active:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to accounts
+          <ChevronLeft className="h-4 w-4" />
+          All Accounts
         </Link>
 
         {account ? (

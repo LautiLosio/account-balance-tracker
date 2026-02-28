@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowRight } from 'lucide-react';
 import { Account } from '@/types/schema';
 import { cn } from '@/lib/utils';
 
@@ -12,83 +11,83 @@ interface AccountListProps {
 
 export function AccountList({ accounts }: AccountListProps) {
   return (
-    <section className="rounded-xl border bg-card">
-      <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <div>
-          <h2 className="font-semibold text-foreground">Accounts</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">{accounts.length} {accounts.length === 1 ? 'account' : 'accounts'} in portfolio</p>
-        </div>
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-sm font-bold uppercase tracking-[0.15em] text-muted-foreground">
+          Accounts
+        </h2>
+        {accounts.length > 0 && (
+          <span className="font-mono text-xs text-muted-foreground">{accounts.length} total</span>
+        )}
       </div>
 
       {accounts.length === 0 ? (
-        <div className="px-5 py-12 text-center">
-          <p className="text-sm text-muted-foreground">No accounts yet. Create one in Manage Accounts.</p>
+        <div className="rounded-xl border border-dashed border-border bg-card px-5 py-10 text-center">
+          <p className="text-sm text-muted-foreground">No accounts yet.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Open Manage Accounts below to create one.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Account</th>
-                <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Type</th>
-                <th className="px-5 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance</th>
-                <th className="hidden px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground lg:table-cell">Last Transaction</th>
-                <th className="px-5 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">History</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {accounts.map((account) => {
-                const lastTx = [...account.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        <ul className="space-y-2.5">
+          {accounts.map((account, index) => {
+            const lastTx = [...account.transactions]
+              .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
-                return (
-                  <tr key={account.id} className="group transition-colors hover:bg-muted/20">
-                    <td className="px-5 py-4">
-                      <p className="font-medium text-foreground">{account.name}</p>
-                      <p className="text-xs text-muted-foreground">#{account.id}</p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <Badge
-                        variant={account.isForeignCurrency ? 'default' : 'secondary'}
-                        className="rounded-md px-2 py-0.5 text-[11px] font-medium"
-                      >
-                        {account.isForeignCurrency ? 'Foreign' : 'Local'}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <span className={cn(
-                        'font-mono text-sm font-semibold tabular-nums',
-                        account.currentBalance >= 0 ? 'text-foreground' : 'text-rose-500'
+            return (
+              <li
+                key={account.id}
+                className="animate-fade-slide-up opacity-0"
+                style={{ animationDelay: `${index * 60}ms`, animationFillMode: 'forwards' }}
+              >
+                <Link
+                  href={`/accounts/${account.id}`}
+                  className="group flex items-stretch overflow-hidden rounded-xl border border-border bg-card transition-all duration-200 hover:border-primary/40 active:scale-[0.99] active:bg-muted/20"
+                >
+                  {/* Left accent bar */}
+                  <span className="w-1 shrink-0 bg-border transition-colors duration-200 group-hover:bg-primary" />
+
+                  <div className="flex flex-1 items-center justify-between gap-4 px-4 py-4 sm:px-5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-display text-lg font-bold leading-tight text-foreground">
+                          {account.name}
+                        </p>
+                        <span className={cn(
+                          'shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide',
+                          account.isForeignCurrency
+                            ? 'bg-primary/15 text-primary'
+                            : 'bg-muted text-muted-foreground'
+                        )}>
+                          {account.isForeignCurrency ? 'Foreign' : 'Local'}
+                        </span>
+                      </div>
+                      {lastTx ? (
+                        <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                          {lastTx.description}
+                          <span className={cn('ml-1.5', lastTx.amount >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                            {lastTx.amount >= 0 ? '+' : ''}
+                            {lastTx.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="mt-1 font-mono text-xs text-muted-foreground/50">No transactions yet</p>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-3">
+                      <p className={cn(
+                        'font-mono text-xl font-bold tabular sm:text-2xl',
+                        account.currentBalance < 0 ? 'text-rose-500' : 'text-foreground'
                       )}>
                         {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                      </span>
-                    </td>
-                    <td className="hidden px-5 py-4 lg:table-cell">
-                      {lastTx ? (
-                        <div>
-                          <p className="max-w-[20ch] truncate text-sm text-foreground">{lastTx.description}</p>
-                          <p className={cn('font-mono text-xs tabular-nums', lastTx.amount >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
-                            {lastTx.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                          </p>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <Link
-                        href={`/accounts/${account.id}`}
-                        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted hover:text-foreground group-hover:border-primary/40 group-hover:text-primary"
-                      >
-                        View
-                        <ArrowUpRight className="h-3 w-3" />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </p>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

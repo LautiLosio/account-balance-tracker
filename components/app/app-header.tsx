@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useRef } from 'react';
-import { CheckCircle2, CloudOff, Download, Moon, RefreshCw, Sun, Upload, Wallet, Zap } from 'lucide-react';
+import { CheckCircle2, CloudOff, Download, Moon, RefreshCw, Sun, Upload, Zap } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { SessionUserSummary } from '@/lib/server-accounts';
@@ -25,111 +25,99 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
 
-  const syncLabel = !isOnline ? 'Offline' : isSyncing ? 'Syncing…' : pendingSyncCount > 0 ? `${pendingSyncCount} pending` : 'Synced';
-
   const SyncIcon = !isOnline ? CloudOff : isSyncing ? RefreshCw : pendingSyncCount > 0 ? Zap : CheckCircle2;
-
-  const syncColor = !isOnline
-    ? 'text-rose-500'
-    : isSyncing
-      ? 'text-amber-400'
-      : pendingSyncCount > 0
-        ? 'text-amber-400'
-        : 'text-emerald-500';
+  const syncColor = !isOnline ? 'text-rose-500' : isSyncing || pendingSyncCount > 0 ? 'text-amber-400' : 'text-primary';
+  const syncLabel = !isOnline ? 'Offline' : isSyncing ? 'Syncing' : pendingSyncCount > 0 ? `${pendingSyncCount} pending` : 'Synced';
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-            <Wallet className="h-3.5 w-3.5 text-primary-foreground" />
-          </div>
-          <span className="text-sm font-semibold tracking-tight">Pocket Ledger</span>
+    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/90 backdrop-blur-md">
+      <div className="mx-auto flex h-12 max-w-screen-lg items-center justify-between px-4 sm:px-6">
+        {/* Logo */}
+        <div className="flex items-center gap-2">
+          <span className="flex h-5 w-5 items-center justify-center rounded bg-primary">
+            <span className="font-display text-[10px] font-bold leading-none text-primary-foreground">PL</span>
+          </span>
+          <span className="font-display text-sm font-bold tracking-tight text-foreground">Pocket Ledger</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        {/* Actions */}
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={onSyncNow}
-            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            title={syncLabel}
           >
-            <SyncIcon className={cn('h-3.5 w-3.5', syncColor, isSyncing && 'animate-spin')} />
+            <SyncIcon className={cn('h-3.5 w-3.5 transition-colors', syncColor, isSyncing && 'animate-spin')} />
             <span className="hidden sm:inline">{syncLabel}</span>
           </button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+          <button
+            type="button"
             onClick={() => exportAllDataCSV(accounts)}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="Export CSV"
           >
             <Download className="h-3.5 w-3.5" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+          </button>
+          <button
+            type="button"
             onClick={() => fileInputRef.current?.click()}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             title="Import CSV"
           >
             <Upload className="h-3.5 w-3.5" />
-          </Button>
+          </button>
           <input
             ref={fileInputRef}
             type="file"
             accept=".csv"
-            onChange={(event) => handleFileImport(event, accounts, setAccounts)}
+            onChange={(e) => handleFileImport(e, accounts, setAccounts)}
             className="hidden"
           />
 
-          <div className="mx-1 h-4 w-px bg-border" />
+          <div className="mx-1 h-3.5 w-px bg-border" />
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+          <button
+            type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Toggle theme"
           >
             {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-          </Button>
+          </button>
 
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+              <button
+                type="button"
+                className="ml-0.5 flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-muted"
+                aria-label="Account"
+              >
                 {user.picture ? (
-                  <Image
-                    src={user.picture}
-                    alt={user.name || 'User'}
-                    width={24}
-                    height={24}
-                    className="h-6 w-6 rounded-full object-cover"
-                    unoptimized
-                  />
+                  <Image src={user.picture} alt={user.name ?? 'User'} width={24} height={24} className="h-6 w-6 rounded-full object-cover" unoptimized />
                 ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary font-display text-[11px] font-bold text-primary-foreground">
                     {user.name?.charAt(0).toUpperCase() ?? 'U'}
-                  </div>
+                  </span>
                 )}
-              </Button>
+              </button>
             </SheetTrigger>
             <SheetContent className="flex flex-col gap-0 p-0">
-              <div className="border-b border-border p-6">
-                <h2 className="text-lg font-semibold">Account</h2>
+              <div className="border-b border-border px-6 py-5">
+                <p className="font-display text-xl font-bold text-foreground">Account</p>
               </div>
               <div className="p-6">
-                <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-4">
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
                   {user.picture ? (
-                    <Image src={user.picture} alt={user.name || 'User'} width={40} height={40} className="h-10 w-10 rounded-full" unoptimized />
+                    <Image src={user.picture} alt={user.name ?? 'User'} width={40} height={40} className="h-10 w-10 rounded-full" unoptimized />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground">
                       {user.name?.charAt(0).toUpperCase() ?? 'U'}
-                    </div>
+                    </span>
                   )}
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-sm">{user.name}</p>
+                    <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
@@ -137,7 +125,7 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
               {/* Auth0 recommends plain anchors for auth endpoints to avoid client-side interception. */}
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a href="/api/auth/logout" className="mt-auto block p-6 pt-0">
-                <Button variant="outline" className="w-full">Sign Out</Button>
+                <Button variant="outline" className="h-11 w-full text-sm">Sign Out</Button>
               </a>
             </SheetContent>
           </Sheet>
