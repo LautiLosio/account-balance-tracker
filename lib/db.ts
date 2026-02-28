@@ -54,7 +54,7 @@ async function getAccountMeta(userId: string, accountId: number): Promise<Accoun
 }
 
 async function getAccountTransactions(userId: string, accountId: number): Promise<Transaction[]> {
-  const transactions = await kv.lrange<Transaction[]>(userAccountTransactionsKey(userId, accountId), 0, -1);
+  const transactions = await kv.lrange<Transaction>(userAccountTransactionsKey(userId, accountId), 0, -1);
   return transactions || [];
 }
 

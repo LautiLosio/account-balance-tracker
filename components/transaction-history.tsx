@@ -12,7 +12,7 @@ import { Account } from '@/types/schema'
 
 interface TransactionHistoryProps {
   account: Account
-  onDeleteAccount: (accountId: string) => void
+  onDeleteAccount: (accountId: number) => void
 }
 
 export function TransactionHistory({ account, onDeleteAccount }: TransactionHistoryProps) {
