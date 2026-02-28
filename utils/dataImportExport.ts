@@ -1,15 +1,13 @@
 import { toast } from 'sonner'
 import { Account, Transaction } from '@/types/schema'
-import { UserProfile } from '@auth0/nextjs-auth0/client'
-import { buildTransferEntries, isCanonicalTransferOut } from '@/lib/transactions'
 
 export const exportAllDataCSV = (accounts: Account[]) => {
   const accountsCSV = accounts.map(a => `${a.id},${a.name},${a.initialBalance},${a.currentBalance},${a.isForeignCurrency}`).join('\n')
-  const transactionsCSV = accounts
-    .flatMap(a => a.transactions.filter(isCanonicalTransferOut).concat(a.transactions.filter(t => t.type !== 'transfer')))
+  const transactionsCSV = accounts.flatMap(a => a.transactions
+    .filter(t => t.type !== 'transfer' || t.fromAccount === a.id)
     .map(t =>
       `${t.id},${t.date instanceof Date ? t.date.toISOString() : new Date(t.date).toISOString()},${t.description},${t.amount},${t.type},${t.fromAccount || ''},${t.toAccount || ''},${t.exchangeRate || ''}`
-    ).join('\n')
+    )).join('\n')
 
   const csv = `Accounts\nID,Name,Initial Balance,Current Balance,IsForeignCurrency\n${accountsCSV}\n\nTransactions\nID,Date,Description,Amount,Type,FromAccount,ToAccount,ExchangeRate\n${transactionsCSV}`
   downloadCSV(csv, 'all_accounts_data.csv')
@@ -34,18 +32,12 @@ export const importAccountTransactions = async (
   accountId: number,
   accounts: Account[],
   setAccounts: (accounts: Account[]) => void,
-  user: UserProfile | undefined
 ) => {
-  if (!user) {
-    toast.error('You must be logged in to import data')
-    return
-  }
-
   try {
     const lines = content.split('\n')
     const initialBalance = parseFloat(lines[0].split(',')[1])
     const currentBalance = parseFloat(lines[1].split(',')[1])
-    const transactions = lines.slice(4).filter(Boolean).map(line => {
+    const transactions = lines.slice(4).map(line => {
       const values = line.split(',')
       return {
         id: Math.max(0, ...accounts.flatMap(acc => acc.transactions.map(t => t.id))) + 1,
@@ -98,17 +90,11 @@ export const importAccountTransactions = async (
 export const importAllData = async (
   content: string,
   setAccounts: (accounts: Account[]) => void,
-  user: UserProfile | undefined
 ) => {
-  if (!user) {
-    toast.error('You must be logged in to import data')
-    return
-  }
-
   try {
     const [accountsSection, transactionsSection] = content.split('\n\n')
-    const accountLines = accountsSection.split('\n').slice(2).filter(Boolean)
-    const transactionLines = transactionsSection.split('\n').slice(2).filter(Boolean)
+    const accountLines = accountsSection.split('\n').slice(2)
+    const transactionLines = transactionsSection.split('\n').slice(2)
 
     const importedAccounts = accountLines.map(line => {
       const [id, name, initialBalance, currentBalance, isForeignCurrency] = line.split(',')
@@ -140,23 +126,9 @@ export const importAllData = async (
       if (transaction.type === 'transfer' && transaction.fromAccount && transaction.toAccount) {
         const fromAccount = importedAccounts.find(a => a.id === transaction.fromAccount)
         const toAccount = importedAccounts.find(a => a.id === transaction.toAccount)
-
         if (fromAccount && toAccount) {
-          const { fromEntry, toEntry } = buildTransferEntries({
-            id: transaction.id,
-            date: new Date(transaction.date),
-            fromAccountId: transaction.fromAccount,
-            toAccountId: transaction.toAccount,
-            fromAccountName: fromAccount.name,
-            toAccountName: toAccount.name,
-            sourceAmount: Math.abs(transaction.amount),
-            fromAccountIsForeign: fromAccount.isForeignCurrency,
-            toAccountIsForeign: toAccount.isForeignCurrency,
-            exchangeRate: transaction.exchangeRate,
-          })
-
-          fromAccount.transactions.push(fromEntry)
-          toAccount.transactions.push(toEntry)
+          fromAccount.transactions.push({ ...transaction, amount: transaction.amount })
+          toAccount.transactions.push({ ...transaction, amount: transaction.exchangeRate ? -transaction.amount * (1 / transaction.exchangeRate) : -transaction.amount })
         }
       } else {
         const account = importedAccounts.find(a => a.id === (transaction.fromAccount || transaction.toAccount))
@@ -191,14 +163,8 @@ export const handleFileImport = (
   event: React.ChangeEvent<HTMLInputElement>,
   accounts: Account[],
   setAccounts: (accounts: Account[]) => void,
-  user: UserProfile | undefined,
   accountId?: number
 ) => {
-  if (!user) {
-    toast.error('You must be logged in to import data')
-    return
-  }
-
   const file = event.target.files?.[0]
   if (!file) return
 
@@ -206,9 +172,9 @@ export const handleFileImport = (
   reader.onload = (e) => {
     const content = e.target?.result as string
     if (accountId) {
-      importAccountTransactions(content, accountId, accounts, setAccounts, user)
+      importAccountTransactions(content, accountId, accounts, setAccounts)
     } else {
-      importAllData(content, setAccounts, user)
+      importAllData(content, setAccounts)
     }
   }
   reader.readAsText(file)
