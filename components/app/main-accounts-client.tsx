@@ -9,8 +9,8 @@ import { AccountForm } from '@/components/account-form';
 import { AccountList } from '@/components/account-list';
 import { TransactionForm } from '@/components/transaction-form';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowDownUp, Settings2, Wifi, WifiOff } from 'lucide-react';
+import { ArrowDownUp, ChevronDown, Settings2, TrendingDown, TrendingUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface MainAccountsClientProps {
   initialAccounts: Account[];
@@ -18,35 +18,21 @@ interface MainAccountsClientProps {
 }
 
 export function MainAccountsClient({ initialAccounts, user }: MainAccountsClientProps) {
-  const {
-    accounts,
-    setAccounts,
-    addAccount,
-    addTransaction,
-    syncNow,
-    isOnline,
-    isSyncing,
-    pendingSyncCount,
-  } = useAccountData(initialAccounts);
+  const { accounts, setAccounts, addAccount, addTransaction, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
+
+  const totalBalance = useMemo(() => accounts.reduce((sum, a) => sum + a.currentBalance, 0), [accounts]);
 
   const recentMovements = useMemo(
     () =>
       accounts
-        .flatMap((account) =>
-          account.transactions.map((transaction) => ({
-            accountName: account.name,
-            ...transaction,
-          }))
-        )
+        .flatMap((account) => account.transactions.map((t) => ({ accountName: account.name, ...t })))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 4),
+        .slice(0, 5),
     [accounts]
   );
 
   return (
-    <div className="relative isolate mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_10%,rgba(255,145,77,0.27),transparent_36%),radial-gradient(circle_at_88%_12%,rgba(66,186,230,0.23),transparent_32%),radial-gradient(circle_at_55%_85%,rgba(241,107,62,0.15),transparent_38%)]" />
-
+    <div className="min-h-[calc(100vh-3.5rem)]">
       <AppHeader
         accounts={accounts}
         setAccounts={setAccounts}
@@ -57,86 +43,84 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
         onSyncNow={syncNow}
       />
 
-      <div className="mb-8 grid gap-4 xl:grid-cols-[1.45fr_0.55fr]">
-        <TransactionForm accounts={accounts} onAddTransaction={addTransaction} />
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        {/* Portfolio hero */}
+        <section className="rounded-xl border bg-card px-6 py-5">
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Total Portfolio</p>
+          <p className="mt-1 font-mono text-4xl font-bold tabular-nums tracking-tight text-foreground sm:text-5xl">
+            {totalBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            <span>{accounts.length} {accounts.length === 1 ? 'account' : 'accounts'}</span>
+            <span className="h-3 w-px bg-border" />
+            <span className={cn(isOnline ? 'text-emerald-500' : 'text-rose-500')}>
+              {isOnline ? 'Online' : 'Offline'}
+            </span>
+            {pendingSyncCount > 0 && (
+              <>
+                <span className="h-3 w-px bg-border" />
+                <span className="text-amber-500">{pendingSyncCount} pending sync</span>
+              </>
+            )}
+          </div>
+        </section>
 
-        <Card className="rounded-3xl border border-black/10 bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-black/35">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Session Pulse</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-2xl border border-black/10 bg-white/65 p-3 dark:border-white/10 dark:bg-black/25">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Accounts</p>
-              <p className="font-display text-3xl text-zinc-900 dark:text-zinc-100">{accounts.length}</p>
-            </div>
-            <div className="rounded-2xl border border-black/10 bg-white/65 p-3 dark:border-white/10 dark:bg-black/25">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Connection</p>
-              <div className="mt-1 flex items-center gap-2">
-                {isOnline ? <Wifi className="h-4 w-4 text-emerald-600" /> : <WifiOff className="h-4 w-4 text-rose-500" />}
-                <p className="font-display text-2xl text-zinc-900 dark:text-zinc-100">{isOnline ? 'Online' : 'Offline'}</p>
+        {/* Main grid */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+          <AccountList accounts={accounts} />
+
+          <div className="space-y-4">
+            <TransactionForm accounts={accounts} onAddTransaction={addTransaction} />
+
+            {/* Recent movements */}
+            <section className="rounded-xl border bg-card">
+              <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                <ArrowDownUp className="h-3.5 w-3.5 text-muted-foreground" />
+                <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Recent Movements</h3>
               </div>
-            </div>
-            <div className="rounded-2xl border border-black/10 bg-white/65 p-3 dark:border-white/10 dark:bg-black/25">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Pending Sync</p>
-              <p className="font-display text-3xl text-zinc-900 dark:text-zinc-100">{pendingSyncCount}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
-        <AccountList accounts={accounts} />
-
-        <div className="space-y-6">
-          <Card className="rounded-3xl border border-black/10 bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-black/35">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-                <ArrowDownUp className="h-4 w-4" />
-                Recent Moves
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {recentMovements.length === 0 && (
-                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-                  No movements yet.
-                </p>
-              )}
-              {recentMovements.length > 0 && (
-                <div className="space-y-2">
-                  {recentMovements.map((movement, index) => (
-                    <article
-                      key={`${movement.accountName}-${movement.id}-${index}`}
-                      className="rounded-2xl border border-black/10 bg-white/65 p-3 dark:border-white/10 dark:bg-black/25"
-                    >
-                      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{movement.accountName}</p>
-                      <p className="text-xs text-zinc-600 dark:text-zinc-300">{movement.description}</p>
-                      <p className={`font-display text-xl ${movement.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {movement.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                      </p>
-                    </article>
+              {recentMovements.length === 0 ? (
+                <p className="px-4 py-6 text-center text-xs text-muted-foreground">No movements yet.</p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {recentMovements.map((m, i) => (
+                    <li key={`${m.accountName}-${m.id}-${i}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{m.accountName}</p>
+                        <p className="truncate text-xs text-muted-foreground">{m.description}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {m.amount >= 0
+                          ? <TrendingUp className="h-3 w-3 text-emerald-500" />
+                          : <TrendingDown className="h-3 w-3 text-rose-500" />
+                        }
+                        <span className={cn('font-mono text-sm font-semibold tabular-nums', m.amount >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                          {m.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                        </span>
+                      </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
-            </CardContent>
-          </Card>
+            </section>
 
-          <Card className="rounded-3xl border border-black/10 bg-white/75 backdrop-blur-md dark:border-white/10 dark:bg-black/30">
+            {/* Account management */}
             <Collapsible>
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="flex-row items-center justify-between">
-                  <CardTitle className="font-mono text-xs uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
-                    Management (Rarely Needed)
-                  </CardTitle>
-                  <Settings2 className="h-5 w-5 text-zinc-500" />
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent>
-                  <AccountForm onAddAccount={addAccount} />
-                </CardContent>
-              </CollapsibleContent>
+              <section className="rounded-xl border bg-card">
+                <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Manage Accounts</span>
+                  </div>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="border-t border-border p-4">
+                    <AccountForm onAddAccount={addAccount} />
+                  </div>
+                </CollapsibleContent>
+              </section>
             </Collapsible>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

@@ -6,62 +6,55 @@
   .text-balance {
     text-wrap: balance;
   }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 @layer base {
   :root {
-    --background: 34 74% 97%;
-    --foreground: 24 16% 10%;
+    --background: 220 20% 97%;
+    --foreground: 222 47% 9%;
     --card: 0 0% 100%;
-    --card-foreground: 24 16% 10%;
+    --card-foreground: 222 47% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 24 16% 10%;
-    --primary: 15 91% 55%;
+    --popover-foreground: 222 47% 9%;
+    --primary: 239 84% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 30 30% 93%;
-    --secondary-foreground: 24 16% 10%;
-    --muted: 30 26% 92%;
-    --muted-foreground: 24 10% 40%;
-    --accent: 191 74% 46%;
+    --secondary: 220 14% 93%;
+    --secondary-foreground: 222 47% 9%;
+    --muted: 220 14% 93%;
+    --muted-foreground: 215 16% 48%;
+    --accent: 262 83% 62%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 358 81% 58%;
+    --destructive: 0 84% 57%;
     --destructive-foreground: 0 0% 100%;
-    --border: 28 20% 86%;
-    --input: 28 20% 86%;
-    --ring: 18 88% 54%;
-    --chart-1: 15 91% 55%;
-    --chart-2: 191 74% 46%;
-    --chart-3: 43 89% 52%;
-    --chart-4: 141 53% 48%;
-    --chart-5: 263 80% 62%;
-    --radius: 1rem;
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 239 84% 60%;
+    --radius: 0.625rem;
   }
 
   .dark {
-    --background: 224 24% 8%;
-    --foreground: 35 25% 93%;
-    --card: 224 20% 12%;
-    --card-foreground: 35 25% 93%;
-    --popover: 224 20% 12%;
-    --popover-foreground: 35 25% 93%;
-    --primary: 24 88% 58%;
+    --background: 222 47% 4%;
+    --foreground: 210 40% 95%;
+    --card: 222 40% 7%;
+    --card-foreground: 210 40% 95%;
+    --popover: 222 40% 7%;
+    --popover-foreground: 210 40% 95%;
+    --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 224 14% 18%;
-    --secondary-foreground: 35 25% 93%;
-    --muted: 224 14% 18%;
-    --muted-foreground: 33 12% 66%;
-    --accent: 188 72% 45%;
+    --secondary: 222 32% 12%;
+    --secondary-foreground: 210 40% 95%;
+    --muted: 222 32% 12%;
+    --muted-foreground: 215 20% 52%;
+    --accent: 262 83% 68%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 358 76% 56%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 224 12% 24%;
-    --input: 224 12% 24%;
-    --ring: 24 88% 58%;
-    --chart-1: 24 88% 58%;
-    --chart-2: 188 72% 45%;
-    --chart-3: 43 84% 57%;
-    --chart-4: 142 47% 45%;
-    --chart-5: 266 70% 63%;
+    --border: 222 28% 13%;
+    --input: 222 28% 13%;
+    --ring: 239 84% 67%;
   }
 
   * {
@@ -71,26 +64,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body), sans-serif;
-    background-image:
-      radial-gradient(circle at 12% 10%, rgba(255, 161, 80, 0.18), transparent 35%),
-      radial-gradient(circle at 90% 8%, rgba(67, 170, 233, 0.14), transparent 30%),
-      radial-gradient(circle at 50% 100%, rgba(248, 122, 72, 0.08), transparent 42%);
     min-height: 100vh;
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    opacity: 0.14;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E");
-  }
-
-  .font-display {
-    font-family: var(--font-display), serif;
-    letter-spacing: -0.02em;
   }
 
   .font-mono {

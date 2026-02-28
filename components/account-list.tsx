@@ -1,103 +1,95 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { ArrowUpRight, History, WalletCards } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Account } from '@/types/schema'
+import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Account } from '@/types/schema';
+import { cn } from '@/lib/utils';
 
 interface AccountListProps {
-  accounts: Account[]
+  accounts: Account[];
 }
 
 export function AccountList({ accounts }: AccountListProps) {
-  const totalBalance = accounts.reduce((acc, curr) => acc + curr.currentBalance, 0)
-
   return (
-    <Card className="overflow-hidden rounded-3xl border border-black/10 bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-black/35">
-      <CardHeader className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle>
-            <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Accounts Ledger</p>
-            <h2 className="font-display text-4xl text-zinc-900 dark:text-zinc-100">Portfolio</h2>
-          </CardTitle>
-          <WalletCards className="h-8 w-8 text-zinc-500 dark:text-zinc-300" />
+    <section className="rounded-xl border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div>
+          <h2 className="font-semibold text-foreground">Accounts</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">{accounts.length} {accounts.length === 1 ? 'account' : 'accounts'} in portfolio</p>
         </div>
-        <p className="font-display text-3xl text-zinc-900 dark:text-zinc-100 sm:text-4xl">
-          {totalBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-        </p>
-      </CardHeader>
+      </div>
 
-      {accounts.length === 0 && (
-        <CardContent className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-          Add your first account from Management when you need it.
-        </CardContent>
+      {accounts.length === 0 ? (
+        <div className="px-5 py-12 text-center">
+          <p className="text-sm text-muted-foreground">No accounts yet. Create one in Manage Accounts.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Account</th>
+                <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Type</th>
+                <th className="px-5 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance</th>
+                <th className="hidden px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground lg:table-cell">Last Transaction</th>
+                <th className="px-5 py-2.5 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">History</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {accounts.map((account) => {
+                const lastTx = [...account.transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+                return (
+                  <tr key={account.id} className="group transition-colors hover:bg-muted/20">
+                    <td className="px-5 py-4">
+                      <p className="font-medium text-foreground">{account.name}</p>
+                      <p className="text-xs text-muted-foreground">#{account.id}</p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <Badge
+                        variant={account.isForeignCurrency ? 'default' : 'secondary'}
+                        className="rounded-md px-2 py-0.5 text-[11px] font-medium"
+                      >
+                        {account.isForeignCurrency ? 'Foreign' : 'Local'}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <span className={cn(
+                        'font-mono text-sm font-semibold tabular-nums',
+                        account.currentBalance >= 0 ? 'text-foreground' : 'text-rose-500'
+                      )}>
+                        {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                      </span>
+                    </td>
+                    <td className="hidden px-5 py-4 lg:table-cell">
+                      {lastTx ? (
+                        <div>
+                          <p className="max-w-[20ch] truncate text-sm text-foreground">{lastTx.description}</p>
+                          <p className={cn('font-mono text-xs tabular-nums', lastTx.amount >= 0 ? 'text-emerald-500' : 'text-rose-500')}>
+                            {lastTx.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <Link
+                        href={`/accounts/${account.id}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted hover:text-foreground group-hover:border-primary/40 group-hover:text-primary"
+                      >
+                        View
+                        <ArrowUpRight className="h-3 w-3" />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
-
-      {accounts.length > 0 && (
-        <CardContent className="pt-0">
-          <div className="overflow-hidden rounded-2xl border border-black/10 dark:border-white/10">
-            <table className="w-full border-collapse">
-              <thead className="bg-zinc-100/80 dark:bg-zinc-900/70">
-                <tr className="text-left">
-                  <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Account</th>
-                  <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Type</th>
-                  <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Balance</th>
-                  <th className="hidden px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400 lg:table-cell">Latest Move</th>
-                  <th className="px-4 py-3 font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.map((account) => {
-                  const recentTransaction = [...account.transactions]
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
-
-                  return (
-                    <tr key={account.id} className="border-t border-black/10 bg-white/55 dark:border-white/10 dark:bg-black/20">
-                      <td className="px-4 py-3">
-                        <p className="font-display text-2xl leading-none text-zinc-900 dark:text-zinc-100">{account.name}</p>
-                        <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">ID {account.id}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={account.isForeignCurrency ? 'default' : 'secondary'} className="rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-wider">
-                          {account.isForeignCurrency ? 'Foreign' : 'Local'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-display text-2xl text-zinc-900 dark:text-zinc-100">
-                          {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                        </p>
-                      </td>
-                      <td className="hidden px-4 py-3 lg:table-cell">
-                        <p className="max-w-[26ch] truncate text-xs text-zinc-700 dark:text-zinc-200">
-                          {recentTransaction
-                            ? `${recentTransaction.description} · ${recentTransaction.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`
-                            : 'No movements yet'}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Button
-                          variant="ghost"
-                          className="rounded-full border border-black/10 bg-white/80 px-3 dark:border-white/15 dark:bg-black/35"
-                          size="sm"
-                          asChild
-                        >
-                          <Link href={`/accounts/${account.id}`}>
-                            <History className="mr-1.5 h-4 w-4" />
-                            Open
-                            <ArrowUpRight className="ml-1.5 h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      )}
-    </Card>
-  )
+    </section>
+  );
 }

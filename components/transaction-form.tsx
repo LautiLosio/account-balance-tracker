@@ -1,160 +1,167 @@
-'use client'
+'use client';
 
-import { useMemo, useState } from 'react'
-import { ArrowRightLeft, CircleDollarSign, MinusCircle, PlusCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Account } from '@/types/schema'
+import { useMemo, useState } from 'react';
+import { ArrowRightLeft, MinusCircle, PlusCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Account } from '@/types/schema';
+import { cn } from '@/lib/utils';
 
 interface TransactionFormProps {
-  accounts: Account[]
+  accounts: Account[];
   onAddTransaction: (
     selectedAccount: number,
     amount: number,
     type: 'income' | 'expense' | 'transfer',
     transferTo?: number,
     exchangeRate?: number
-  ) => void
+  ) => void;
 }
 
 export function TransactionForm({ accounts, onAddTransaction }: TransactionFormProps) {
-  const [selectedAccount, setSelectedAccount] = useState<number | null>(null)
-  const [transactionAmount, setTransactionAmount] = useState('')
-  const [transactionType, setTransactionType] = useState<'income' | 'expense' | 'transfer'>('income')
-  const [transferTo, setTransferTo] = useState<number | null>(null)
-  const [exchangeRate, setExchangeRate] = useState('')
+  const [selectedAccount, setSelectedAccount] = useState<number | null>(null);
+  const [transactionAmount, setTransactionAmount] = useState('');
+  const [transactionType, setTransactionType] = useState<'income' | 'expense' | 'transfer'>('income');
+  const [transferTo, setTransferTo] = useState<number | null>(null);
+  const [exchangeRate, setExchangeRate] = useState('');
 
   const needsExchangeRate =
     transactionType === 'transfer' &&
-    ((selectedAccount !== null && accounts.find(acc => acc.id === selectedAccount)?.isForeignCurrency) ||
-      (transferTo !== null && accounts.find(acc => acc.id === transferTo)?.isForeignCurrency))
+    ((selectedAccount !== null && accounts.find((a) => a.id === selectedAccount)?.isForeignCurrency) ||
+      (transferTo !== null && accounts.find((a) => a.id === transferTo)?.isForeignCurrency));
 
   const disabledSubmit = useMemo(() => {
-    const parsedAmount = Number.parseFloat(transactionAmount)
-    const parsedExchangeRate = Number.parseFloat(exchangeRate)
-
-    if (selectedAccount === null) return true
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) return true
-    if (transactionType === 'transfer' && transferTo === null) return true
-    if (needsExchangeRate && (!Number.isFinite(parsedExchangeRate) || parsedExchangeRate <= 0)) return true
-    return false
-  }, [selectedAccount, transactionAmount, transactionType, transferTo, needsExchangeRate, exchangeRate])
+    const amount = Number.parseFloat(transactionAmount);
+    const rate = Number.parseFloat(exchangeRate);
+    if (selectedAccount === null) return true;
+    if (!Number.isFinite(amount) || amount <= 0) return true;
+    if (transactionType === 'transfer' && transferTo === null) return true;
+    if (needsExchangeRate && (!Number.isFinite(rate) || rate <= 0)) return true;
+    return false;
+  }, [selectedAccount, transactionAmount, transactionType, transferTo, needsExchangeRate, exchangeRate]);
 
   const handleSubmit = () => {
-    if (disabledSubmit || selectedAccount === null) {
-      return
-    }
-
+    if (disabledSubmit || selectedAccount === null) return;
     onAddTransaction(
       selectedAccount,
       Number.parseFloat(transactionAmount),
       transactionType,
       transferTo ?? undefined,
       exchangeRate ? Number.parseFloat(exchangeRate) : undefined
-    )
-
-    setTransactionAmount('')
-    setExchangeRate('')
-  }
+    );
+    setTransactionAmount('');
+    setExchangeRate('');
+  };
 
   return (
-    <Card className="rounded-3xl border border-black/10 bg-white/85 shadow-[0_35px_90px_-52px_rgba(0,0,0,0.6)] backdrop-blur-md dark:border-white/10 dark:bg-black/40">
-      <CardHeader className="pb-4">
-        <CardTitle className="flex items-center justify-between">
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Quick Entry</p>
-            <h2 className="font-display text-4xl text-zinc-900 dark:text-zinc-100">Capture Movement</h2>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">This is your primary action. Add first, sync later.</p>
-          </div>
-          <CircleDollarSign className="h-7 w-7" />
-        </CardTitle>
-      </CardHeader>
+    <section className="rounded-xl border bg-card">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">New Transaction</h3>
+      </div>
 
-      {accounts.length === 0 && (
-        <CardContent className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
-          Create an account first.
-        </CardContent>
-      )}
-
-      {accounts.length > 0 && (
-        <CardContent>
-          <div className="space-y-5">
-            <ToggleGroup
-              className="grid grid-cols-3 rounded-2xl border border-black/10 p-1 dark:border-white/10"
-              type="single"
-              variant="outline"
-              value={transactionType}
-              onValueChange={(value) => setTransactionType((value || 'income') as 'income' | 'expense' | 'transfer')}
+      {accounts.length === 0 ? (
+        <p className="px-4 py-6 text-center text-xs text-muted-foreground">Create an account first.</p>
+      ) : (
+        <div className="space-y-3 p-4">
+          <ToggleGroup
+            className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-muted/30 p-1"
+            type="single"
+            variant="outline"
+            value={transactionType}
+            onValueChange={(v) => setTransactionType((v || 'income') as 'income' | 'expense' | 'transfer')}
+          >
+            <ToggleGroupItem
+              value="expense"
+              className={cn(
+                'rounded-md text-xs font-medium',
+                transactionType === 'expense' && 'bg-rose-500/10 text-rose-500 border-rose-500/30'
+              )}
             >
-              <ToggleGroupItem className="rounded-xl" value="expense">
-                <MinusCircle className="mr-1.5 h-4 w-4" /> Expense
-              </ToggleGroupItem>
-              <ToggleGroupItem className="rounded-xl" value="income">
-                <PlusCircle className="mr-1.5 h-4 w-4" /> Income
-              </ToggleGroupItem>
-              <ToggleGroupItem className="rounded-xl" value="transfer" disabled={accounts.length < 2}>
-                <ArrowRightLeft className="mr-1.5 h-4 w-4" /> Transfer
-              </ToggleGroupItem>
-            </ToggleGroup>
+              <MinusCircle className="mr-1.5 h-3.5 w-3.5" />
+              Expense
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="income"
+              className={cn(
+                'rounded-md text-xs font-medium',
+                transactionType === 'income' && 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+              )}
+            >
+              <PlusCircle className="mr-1.5 h-3.5 w-3.5" />
+              Income
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="transfer"
+              disabled={accounts.length < 2}
+              className={cn(
+                'rounded-md text-xs font-medium',
+                transactionType === 'transfer' && 'bg-primary/10 text-primary border-primary/30'
+              )}
+            >
+              <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+              Transfer
+            </ToggleGroupItem>
+          </ToggleGroup>
 
-            <div className="grid gap-3 md:grid-cols-[1fr_1fr]">
-              <Select onValueChange={(value) => setSelectedAccount(Number.parseInt(value, 10))}>
-                <SelectTrigger className="rounded-2xl border-black/10 bg-white/70 dark:border-white/10 dark:bg-black/35">
-                  <SelectValue placeholder="Source account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.map(account => (
-                    <SelectItem key={account.id} value={account.id.toString()}>
-                      {account.name}: {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <Select onValueChange={(v) => setSelectedAccount(Number.parseInt(v, 10))}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Select account" />
+            </SelectTrigger>
+            <SelectContent>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={a.id.toString()}>
+                  <span className="font-medium">{a.name}</span>
+                  <span className="ml-2 font-mono text-xs text-muted-foreground tabular-nums">
+                    {a.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-              <Input
-                type="number"
-                placeholder="Amount"
-                value={transactionAmount}
-                min={0}
-                onChange={(e) => setTransactionAmount(e.target.value)}
-                className="rounded-2xl border-black/10 bg-white/70 text-lg dark:border-white/10 dark:bg-black/35"
-              />
-            </div>
+          <Input
+            type="number"
+            placeholder="Amount"
+            value={transactionAmount}
+            min={0}
+            onChange={(e) => setTransactionAmount(e.target.value)}
+            className="h-9 font-mono text-sm tabular-nums"
+          />
 
-            {transactionType === 'transfer' && (
-              <Select onValueChange={(value) => setTransferTo(Number.parseInt(value, 10))}>
-                <SelectTrigger className="rounded-2xl border-black/10 bg-white/70 dark:border-white/10 dark:bg-black/35">
-                  <SelectValue placeholder="Destination account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.filter(account => account.id !== selectedAccount).map(account => (
-                    <SelectItem key={account.id} value={account.id.toString()}>
-                      {account.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+          {transactionType === 'transfer' && (
+            <Select onValueChange={(v) => setTransferTo(Number.parseInt(v, 10))}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Destination account" />
+              </SelectTrigger>
+              <SelectContent>
+                {accounts.filter((a) => a.id !== selectedAccount).map((a) => (
+                  <SelectItem key={a.id} value={a.id.toString()}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-            {needsExchangeRate && (
-              <Input
-                type="number"
-                placeholder="Exchange rate"
-                value={exchangeRate}
-                onChange={(e) => setExchangeRate(e.target.value)}
-                className="rounded-2xl border-black/10 bg-white/70 dark:border-white/10 dark:bg-black/35"
-              />
-            )}
+          {needsExchangeRate && (
+            <Input
+              type="number"
+              placeholder="Exchange rate"
+              value={exchangeRate}
+              onChange={(e) => setExchangeRate(e.target.value)}
+              className="h-9 font-mono text-sm tabular-nums"
+            />
+          )}
 
-            <Button disabled={disabledSubmit} onClick={handleSubmit} className="w-full rounded-2xl bg-zinc-900 py-6 text-base text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300">
-              Save movement
-            </Button>
-          </div>
-        </CardContent>
+          <Button
+            disabled={disabledSubmit}
+            onClick={handleSubmit}
+            className="h-9 w-full text-sm font-semibold"
+          >
+            Save Transaction
+          </Button>
+        </div>
       )}
-    </Card>
-  )
+    </section>
+  );
 }
