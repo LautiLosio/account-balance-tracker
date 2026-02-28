@@ -2,7 +2,8 @@
 
 import Image from 'next/image';
 import { useRef } from 'react';
-import { Download, Upload } from 'lucide-react';
+import { Download, Moon, Sun, Upload } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 import { SessionUserSummary } from '@/lib/server-accounts';
 import { Account } from '@/types/schema';
@@ -21,11 +22,20 @@ interface AppHeaderProps {
 
 export function AppHeader({ accounts, setAccounts, user }: AppHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="mb-6 flex items-center justify-between gap-3">
       <h1 className="text-3xl font-bold">Account Balance Tracker</h1>
       <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
         <Button variant="outline" size="sm" onClick={() => exportAllDataCSV(accounts)}>
           <Download className="mr-2 h-4 w-4" />
           Export
