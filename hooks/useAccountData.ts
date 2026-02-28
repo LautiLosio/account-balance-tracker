@@ -94,7 +94,7 @@ export function useAccountData() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ accounts: [...accounts, newAccount] }),
+        body: JSON.stringify({ account: newAccount }),
       })
       
       if (!response.ok) {
