@@ -98,30 +98,6 @@ export function AppHeader() {
             <span className="hidden sm:inline">{syncLabel}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => exportAllDataCSV(accounts)}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Export CSV"
-          >
-            <Download className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            title="Import CSV"
-          >
-            <Upload className="h-3.5 w-3.5" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={(e) => handleFileImport(e, accounts, setAccounts)}
-            className="hidden"
-          />
-
           <div className="mx-1 h-3.5 w-px bg-border" />
 
           <button
@@ -150,41 +126,105 @@ export function AppHeader() {
                 )}
               </button>
             </SheetTrigger>
-            <SheetContent className="flex flex-col gap-0 p-0">
-              <SheetHeader className="border-b border-border px-6 py-5">
-                <SheetTitle className="font-display text-xl font-bold text-foreground">Account</SheetTitle>
+            <SheetContent
+              side="bottom"
+              className="mx-auto w-full max-w-screen-md rounded-t-3xl border-t border-border bg-card/95 p-0 backdrop-blur-xl"
+            >
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="h-1 w-10 rounded-full bg-border" />
+              </div>
+
+              <SheetHeader className="border-b border-border px-6 pb-4 pt-2">
+                <SheetTitle className="font-display text-2xl font-bold tracking-tight text-foreground">Account</SheetTitle>
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Profile and session controls
+                </p>
               </SheetHeader>
-              <div className="p-6">
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-4">
-                  {user.picture ? (
-                    <Image src={user.picture} alt={user.name ?? 'User'} width={40} height={40} className="h-10 w-10 rounded-full" />
-                  ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground">
-                      {user.name?.charAt(0).toUpperCase() ?? 'U'}
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+
+              <div className="space-y-4 px-6 py-5">
+                <div className="rounded-2xl border border-border bg-gradient-to-br from-primary/15 via-card to-card p-4">
+                  <div className="flex items-center gap-3">
+                    {user.picture ? (
+                      <Image src={user.picture} alt={user.name ?? 'User'} width={40} height={40} className="h-11 w-11 rounded-full object-cover ring-2 ring-primary/25" />
+                    ) : (
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary font-display text-sm font-bold text-primary-foreground ring-2 ring-primary/25">
+                        {user.name?.charAt(0).toUpperCase() ?? 'U'}
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold text-foreground">{user.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Accounts</p>
+                      <p className="mt-0.5 font-display text-lg font-bold text-foreground">{accounts.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-border bg-background/70 px-3 py-2">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Sync</p>
+                      <p className={cn(
+                        'mt-0.5 font-display text-lg font-bold',
+                        !isOnline
+                          ? 'text-rose-600 dark:text-rose-500'
+                          : isSyncing || pendingSyncCount > 0
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-lime-700 dark:text-primary'
+                      )}>
+                        {syncLabel}
+                      </p>
+                    </div>
                   </div>
                 </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full justify-start rounded-xl px-4 text-sm"
+                    onClick={() => exportAllDataCSV(accounts)}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-11 w-full justify-start rounded-xl px-4 text-sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Import CSV
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => handleFileImport(e, accounts, setAccounts)}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {/* Auth0 recommends plain anchors for auth endpoints to avoid client-side interception. */}
+                  {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+                  <a href="/api/auth/logout" className="block">
+                    <Button variant="outline" className="h-11 w-full rounded-xl text-sm">Sign Out</Button>
+                  </a>
+
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="h-11 w-full rounded-xl text-sm"
+                    onClick={handleDeleteAccountAndData}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete Account & Data'}
+                  </Button>
+                </div>
               </div>
-              <div className="px-6 pb-4">
-                <Button
-                  type="button"
-                  variant="destructive"
-                  className="h-11 w-full text-sm"
-                  onClick={handleDeleteAccountAndData}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? 'Deleting...' : 'Delete Account & Data'}
-                </Button>
-              </div>
-              {/* Auth0 recommends plain anchors for auth endpoints to avoid client-side interception. */}
-              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a href="/api/auth/logout" className="mt-auto block p-6 pt-0">
-                <Button variant="outline" className="h-11 w-full text-sm">Sign Out</Button>
-              </a>
+
             </SheetContent>
           </Sheet>
         </div>
