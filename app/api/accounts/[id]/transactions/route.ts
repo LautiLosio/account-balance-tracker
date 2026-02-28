@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@auth0/nextjs-auth0';
 import { addTransaction, addTransferTransaction } from '@/lib/db';
 import { Transaction } from '@/types/schema';
+import { validateServerEnv } from '@/lib/env';
+
+validateServerEnv();
 
 // POST handler to add a transaction to an account
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

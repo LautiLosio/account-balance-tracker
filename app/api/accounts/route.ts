@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@auth0/nextjs-auth0';
 import { getUserAccounts, saveUserAccounts } from '@/lib/db';
 import { Account } from '@/types/schema';
+import { validateServerEnv } from '@/lib/env';
+
+validateServerEnv();
 
 // GET handler to fetch all accounts for the authenticated user
 export async function GET() {
