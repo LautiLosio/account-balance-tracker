@@ -129,7 +129,9 @@ export function AccountBalanceTrackerComponent() {
     fetchAccounts,
     deleteAccount,
     addAccount,
-    addTransaction
+    addTransaction,
+    updateTransaction,
+    softDeleteTransaction
   } = useAccountData()
   
   const [viewingTransactions, setViewingTransactions] = useState<number | null>(null)
@@ -240,6 +242,9 @@ export function AccountBalanceTrackerComponent() {
             user={user}
             account={viewingAccount}
             onDeleteAccount={handleDeleteAccount}
+            onRefresh={fetchAccounts}
+            onUpdateTransaction={updateTransaction}
+            onSoftDeleteTransaction={softDeleteTransaction}
           />
         )
       )}

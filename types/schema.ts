@@ -18,6 +18,9 @@ export interface Transaction {
   fromAccount: number;
   toAccount?: number;
   exchangeRate?: number;
+  isDeleted?: boolean;
+  deletedAt?: Date;
+  updatedAt?: Date;
 }
 
 // Define the User type (for future use)

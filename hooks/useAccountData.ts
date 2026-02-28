@@ -5,12 +5,20 @@ import { useUser } from '@auth0/nextjs-auth0/client'
 import { toast } from 'sonner'
 import { Account, Transaction } from '@/types/schema'
 
+async function getErrorMessage(response: Response, fallback: string) {
+  try {
+    const data = await response.json()
+    return data.error || fallback
+  } catch {
+    return fallback
+  }
+}
+
 export function useAccountData() {
   const { user, isLoading: isUserLoading } = useUser()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Fetch accounts when user is authenticated
   useEffect(() => {
     if (user && !isUserLoading) {
       fetchAccounts()
@@ -19,16 +27,15 @@ export function useAccountData() {
     }
   }, [user, isUserLoading])
 
-  // Fetch accounts from the API
   const fetchAccounts = async () => {
     try {
       setIsLoading(true)
       const response = await fetch('/api/accounts')
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch accounts')
       }
-      
+
       const data = await response.json()
       setAccounts(data.accounts || [])
     } catch (error) {
@@ -41,29 +48,27 @@ export function useAccountData() {
 
   const deleteAccount = async (id: number) => {
     if (!user) {
-      toast.error("You must be logged in to delete an account")
+      toast.error('You must be logged in to delete an account')
       return
     }
-    
+
     try {
-      // Update UI first for immediate feedback
       setAccounts(accounts.filter(account => account.id !== id))
-      
-      // Then update the database
+
       const response = await fetch(`/api/accounts/${id}`, {
         method: 'DELETE',
       })
-      
+
       if (!response.ok) {
         throw new Error('Failed to delete account')
       }
-      
-      toast.success("Account deleted successfully")
-      fetchAccounts() // Refresh accounts from the database
+
+      toast.success('Account deleted successfully')
+      fetchAccounts()
     } catch (error) {
       console.error('Error deleting account:', error)
-      toast.error("Failed to delete account. Please try again.")
-      fetchAccounts() // Refresh to ensure UI is in sync with database
+      toast.error('Failed to delete account. Please try again.')
+      fetchAccounts()
     }
   }
 
@@ -75,7 +80,7 @@ export function useAccountData() {
 
     try {
       const accountId = accounts.length > 0 ? Math.max(...accounts.map(a => a.id)) + 1 : 1
-      
+
       const newAccount: Account = {
         id: accountId,
         name,
@@ -84,11 +89,9 @@ export function useAccountData() {
         isForeignCurrency,
         transactions: []
       }
-      
-      // Add account to local state first for immediate UI update
+
       setAccounts([...accounts, newAccount])
-      
-      // Save to the API
+
       const response = await fetch('/api/accounts', {
         method: 'POST',
         headers: {
@@ -96,19 +99,17 @@ export function useAccountData() {
         },
         body: JSON.stringify({ accounts: [...accounts, newAccount] }),
       })
-      
+
       if (!response.ok) {
         throw new Error('Failed to save account')
       }
-      
+
       toast.success('Account added successfully', {
-        description: `Account "${name}" added successfully. 
-          With ${initialBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })} initial balance.`,
+        description: `Account "${name}" added successfully. With ${initialBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })} initial balance.`,
       })
     } catch (error) {
       console.error('Error adding account:', error)
       toast.error('Failed to add account')
-      // Refresh accounts to ensure UI is in sync with server
       fetchAccounts()
     }
   }
@@ -126,44 +127,45 @@ export function useAccountData() {
     }
 
     try {
-      const transactionAmount = type === 'expense' ? -amount : amount
       const updatedAccounts = [...accounts]
       const transactionId = Math.max(0, ...updatedAccounts.flatMap(acc => acc.transactions.map(t => t.id))) + 1
+      const positiveAmount = Math.abs(amount)
       const newTransaction: Transaction = {
         id: transactionId,
         date: new Date(),
-        description: type === 'transfer' ? `Transfer` : type,
-        amount: transactionAmount,
+        description: type === 'transfer' ? 'Transfer' : type,
+        amount: type === 'expense' ? -positiveAmount : positiveAmount,
         type,
         fromAccount: selectedAccount,
       }
 
-      // Handle UI updates first for immediate feedback
       if (type === 'transfer' && transferTo !== undefined) {
         const fromAccount = updatedAccounts.find(acc => acc.id === selectedAccount)
         const toAccount = updatedAccounts.find(acc => acc.id === transferTo)
 
         if (fromAccount && toAccount) {
-          let transferAmount = transactionAmount
+          if (fromAccount.currentBalance < positiveAmount) {
+            toast.error('Insufficient funds for this transfer.')
+            return
+          }
+
+          let transferAmount = positiveAmount
           const rate = exchangeRate || 1
-          
+
           if (fromAccount.isForeignCurrency || toAccount.isForeignCurrency) {
-            transferAmount = fromAccount.isForeignCurrency ? transactionAmount * rate : transactionAmount * (1 / rate)
+            transferAmount = fromAccount.isForeignCurrency ? positiveAmount * rate : positiveAmount * (1 / rate)
             newTransaction.exchangeRate = rate
           }
 
-          fromAccount.currentBalance -= transactionAmount
+          fromAccount.currentBalance -= positiveAmount
           toAccount.currentBalance += transferAmount
-          newTransaction.fromAccount = selectedAccount
           newTransaction.toAccount = transferTo
           newTransaction.description = `Transfer from ${fromAccount.name} to ${toAccount.name}`
-          fromAccount.transactions.push({ ...newTransaction, amount: -transactionAmount })
-          toAccount.transactions.push({ ...newTransaction, amount: transferAmount })
-          
-          // Update UI
+          fromAccount.transactions.push({ ...newTransaction, amount: -positiveAmount, isDeleted: false })
+          toAccount.transactions.push({ ...newTransaction, amount: transferAmount, isDeleted: false })
+
           setAccounts(updatedAccounts)
-          
-          // Save to API
+
           const response = await fetch(`/api/accounts/${selectedAccount}/transactions`, {
             method: 'POST',
             headers: {
@@ -175,21 +177,24 @@ export function useAccountData() {
               exchangeRate: rate
             }),
           })
-          
+
           if (!response.ok) {
-            throw new Error('Failed to save transaction')
+            throw new Error(await getErrorMessage(response, 'Failed to save transaction'))
           }
         }
       } else {
         const account = updatedAccounts.find(acc => acc.id === selectedAccount)
         if (account) {
-          account.currentBalance += transactionAmount
-          account.transactions.push(newTransaction)
-          
-          // Update UI
+          if (type === 'expense' && account.currentBalance < positiveAmount) {
+            toast.error('Insufficient funds for this expense.')
+            return
+          }
+
+          account.currentBalance += newTransaction.amount
+          account.transactions.push({ ...newTransaction, isDeleted: false })
+
           setAccounts(updatedAccounts)
-          
-          // Save to API
+
           const response = await fetch(`/api/accounts/${selectedAccount}/transactions`, {
             method: 'POST',
             headers: {
@@ -199,22 +204,55 @@ export function useAccountData() {
               transaction: newTransaction
             }),
           })
-          
+
           if (!response.ok) {
-            throw new Error('Failed to save transaction')
+            throw new Error(await getErrorMessage(response, 'Failed to save transaction'))
           }
         }
       }
 
       toast.success(`${newTransaction.description} added successfully`, {
-        description: `Amount: ${transactionAmount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`,
+        description: `Amount: ${newTransaction.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}`,
       })
     } catch (error) {
       console.error('Error adding transaction:', error)
-      toast.error('Failed to add transaction')
-      // Refresh accounts to ensure UI is in sync with server
+      toast.error(error instanceof Error ? error.message : 'Failed to add transaction')
       fetchAccounts()
     }
+  }
+
+  const updateTransaction = async (
+    accountId: number,
+    transactionId: number,
+    updates: Pick<Transaction, 'description' | 'amount' | 'date'> & { exchangeRate?: number }
+  ) => {
+    const response = await fetch(`/api/accounts/${accountId}/transactions`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionId, updates })
+    })
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response, 'Failed to update transaction'))
+    }
+
+    await fetchAccounts()
+    toast.success('Transaction updated')
+  }
+
+  const softDeleteTransaction = async (accountId: number, transactionId: number) => {
+    const response = await fetch(`/api/accounts/${accountId}/transactions`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionId })
+    })
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response, 'Failed to delete transaction'))
+    }
+
+    await fetchAccounts()
+    toast.success('Transaction deleted')
   }
 
   return {
@@ -225,6 +263,8 @@ export function useAccountData() {
     fetchAccounts,
     deleteAccount,
     addAccount,
-    addTransaction
+    addTransaction,
+    updateTransaction,
+    softDeleteTransaction
   }
 }
