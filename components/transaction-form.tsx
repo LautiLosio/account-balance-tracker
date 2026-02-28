@@ -7,10 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Account } from '@/types/schema'
-import { UserProfile } from '@auth0/nextjs-auth0/client'
 
 interface TransactionFormProps {
-  user: UserProfile | undefined
   accounts: Account[]
   onAddTransaction: (
     selectedAccount: number,
@@ -21,7 +19,7 @@ interface TransactionFormProps {
   ) => void
 }
 
-export function TransactionForm({ user, accounts, onAddTransaction }: TransactionFormProps) {
+export function TransactionForm({ accounts, onAddTransaction }: TransactionFormProps) {
   const [selectedAccount, setSelectedAccount] = useState<number | null>(null)
   const [transactionAmount, setTransactionAmount] = useState('')
   const [transactionType, setTransactionType] = useState<'income' | 'expense' | 'transfer'>('income')
@@ -37,7 +35,6 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
         transferTo || undefined,
         exchangeRate ? parseFloat(exchangeRate) : undefined
       )
-      // Reset form
       setTransactionAmount('')
       setExchangeRate('')
     }
@@ -52,9 +49,8 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
       <CardHeader>
         <CardTitle>New Transaction</CardTitle>
       </CardHeader>
-      {!user && (<CardContent className='text-muted-foreground'>Please sign in to add transactions.</CardContent>)}
-      {user && accounts.length === 0 && (<CardContent className='text-muted-foreground'>Add a new account to get started.</CardContent>)}
-      {user && accounts.length > 0 && (
+      {accounts.length === 0 && (<CardContent className='text-muted-foreground'>Add a new account to get started.</CardContent>)}
+      {accounts.length > 0 && (
         <CardContent>
           <div className="flex flex-col gap-4">
             <Select onValueChange={(value) => setSelectedAccount(parseInt(value))}>
@@ -70,9 +66,9 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
               </SelectContent>
             </Select>
 
-            <ToggleGroup 
-              className="flex-1" 
-              type="single" 
+            <ToggleGroup
+              className="flex-1"
+              type="single"
               variant="outline"
               value={transactionType}
               onValueChange={(value) => setTransactionType(value as 'income' | 'expense' | 'transfer')}
@@ -103,7 +99,7 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
                 </ToggleGroupItem>
               )}
             </ToggleGroup>
-            
+
             {transactionType === 'transfer' && (
               <Select onValueChange={(value) => setTransferTo(parseInt(value))}>
                 <SelectTrigger>
@@ -126,7 +122,7 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
               max={selectedAccount ? accounts.find(acc => acc.id === selectedAccount)?.currentBalance : 0}
               onChange={(e) => setTransactionAmount(e.target.value)}
             />
-            
+
             {needsExchangeRate && (
               <Input
                 type="number"
@@ -135,7 +131,7 @@ export function TransactionForm({ user, accounts, onAddTransaction }: Transactio
                 onChange={(e) => setExchangeRate(e.target.value)}
               />
             )}
-            
+
             <Button disabled={!selectedAccount || !transactionAmount} onClick={handleSubmit}>
               Submit Transaction
             </Button>

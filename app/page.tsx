@@ -1,5 +1,5 @@
-import { AccountBalanceTrackerComponent } from "@/components/account-balance-tracker"
+import { redirect } from 'next/navigation'
 
 export default function Page() {
-  return <AccountBalanceTrackerComponent />
+  redirect('/accounts')
 }

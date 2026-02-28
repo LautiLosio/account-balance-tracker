@@ -9,15 +9,13 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Account } from '@/types/schema'
-import { UserProfile } from '@auth0/nextjs-auth0/client'
 
 interface TransactionHistoryProps {
-  user: UserProfile | undefined
   account: Account
   onDeleteAccount: (accountId: number) => void
 }
 
-export function TransactionHistory({ user, account, onDeleteAccount }: TransactionHistoryProps) {
+export function TransactionHistory({ account, onDeleteAccount }: TransactionHistoryProps) {
   const handleDeleteAccount = () => {
     if (window.confirm('Are you sure you want to delete this account? This action cannot be undone.')) {
       onDeleteAccount(account.id)
@@ -46,20 +44,18 @@ export function TransactionHistory({ user, account, onDeleteAccount }: Transacti
                 <li><span className="font-semibold">Current Balance:</span> {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</li>
                 <li><span className="font-semibold">Number of Transactions:</span> {account.transactions.length}</li>
               </ul>
-              {user && (
-                <Button 
-                  variant="destructive" 
-                  className="mt-4" 
-                  onClick={handleDeleteAccount}
-                >
-                  Delete Account
-                </Button>
-              )}
+              <Button
+                variant="destructive"
+                className="mt-4"
+                onClick={handleDeleteAccount}
+              >
+                Delete Account
+              </Button>
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
@@ -77,7 +73,7 @@ export function TransactionHistory({ user, account, onDeleteAccount }: Transacti
                   <div>
                     <div className="font-semibold capitalize">{transaction.description}</div>
                     <div className="text-sm text-gray-500">
-                      {typeof transaction.date === 'string' 
+                      {typeof transaction.date === 'string'
                         ? new Date(transaction.date).toLocaleString('es-AR')
                         : transaction.date.toLocaleString('es-AR')}
                     </div>

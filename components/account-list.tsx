@@ -1,19 +1,17 @@
 'use client'
 
+import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from '@/components/ui/badge'
 import { History } from 'lucide-react'
 import { Account } from '@/types/schema'
-import { UserProfile } from '@auth0/nextjs-auth0/client'
 
 interface AccountListProps {
-  user: UserProfile | undefined
   accounts: Account[]
-  onViewTransactions: (accountId: number) => void
 }
 
-export function AccountList({ user, accounts, onViewTransactions }: AccountListProps) {
+export function AccountList({ accounts }: AccountListProps) {
   const totalBalance = accounts.reduce((acc, curr) => acc + curr.currentBalance, 0)
 
   return (
@@ -23,9 +21,8 @@ export function AccountList({ user, accounts, onViewTransactions }: AccountListP
           Total balance: <span className="font-semibold">{totalBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</span>
         </CardTitle>
       </CardHeader>
-      {!user && (<CardContent className='text-muted-foreground'>Please sign in to manage your accounts.</CardContent>)}
-      {user && accounts.length === 0 && (<CardContent className='text-muted-foreground'>Add a new account to get started.</CardContent>)}
-      {user && accounts.length > 0 && (
+      {accounts.length === 0 && (<CardContent className='text-muted-foreground'>Add a new account to get started.</CardContent>)}
+      {accounts.length > 0 && (
         <CardContent className="flex flex-col gap-4">
           <span className="flex flex-wrap gap-4">
             {accounts.map(account => (
@@ -44,8 +41,10 @@ export function AccountList({ user, accounts, onViewTransactions }: AccountListP
                     <h2 className="text-2xl font-bold">
                       {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
                     </h2>
-                    <Button variant="ghost" className='self-end' size="sm" onClick={() => onViewTransactions(account.id)}>
-                      <History className="h-4 w-4" />
+                    <Button variant="ghost" className='self-end' size="sm" asChild>
+                      <Link href={`/accounts/${account.id}`}>
+                        <History className="h-4 w-4" />
+                      </Link>
                     </Button>
                   </div>
                 </CardContent>
