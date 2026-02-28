@@ -177,6 +177,32 @@ export async function deleteAccount(userId: string, accountId: number): Promise<
   }
 }
 
+export async function deleteAllUserData(userId: string): Promise<boolean> {
+  try {
+    const accountIds = await kv.smembers<string[]>(userAccountIdsKey(userId));
+    const pipeline = kv.multi();
+
+    for (const accountId of accountIds ?? []) {
+      const parsedId = Number.parseInt(accountId, 10);
+      if (Number.isNaN(parsedId)) {
+        continue;
+      }
+
+      pipeline.del(userAccountMetaKey(userId, parsedId));
+      pipeline.del(userAccountTransactionsKey(userId, parsedId));
+    }
+
+    pipeline.del(userAccountIdsKey(userId));
+    pipeline.del(legacyUserAccountsKey(userId));
+    await pipeline.exec();
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting all user data:', error);
+    return false;
+  }
+}
+
 export async function appendTransaction(userId: string, accountId: number, transaction: Transaction): Promise<boolean> {
   try {
     const accountMeta = await getAccountMeta(userId, accountId);

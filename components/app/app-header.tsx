@@ -1,9 +1,10 @@
 'use client';
 
 import Image from 'next/image';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { CheckCircle2, CloudOff, Download, Moon, RefreshCw, Sun, Upload, Zap } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { SessionUserSummary } from '@/lib/server-accounts';
 import { Account } from '@/types/schema';
@@ -19,15 +20,58 @@ interface AppHeaderProps {
   isSyncing: boolean;
   isOnline: boolean;
   onSyncNow: () => void;
+  onClearAllData: () => void;
 }
 
-export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyncing, isOnline, onSyncNow }: AppHeaderProps) {
+export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyncing, isOnline, onSyncNow, onClearAllData }: AppHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { resolvedTheme, setTheme } = useTheme();
 
   const SyncIcon = !isOnline ? CloudOff : isSyncing ? RefreshCw : pendingSyncCount > 0 ? Zap : CheckCircle2;
   const syncColor = !isOnline ? 'text-rose-500' : isSyncing || pendingSyncCount > 0 ? 'text-amber-400' : 'text-primary';
   const syncLabel = !isOnline ? 'Offline' : isSyncing ? 'Syncing' : pendingSyncCount > 0 ? `${pendingSyncCount} pending` : 'Synced';
+
+  const handleDeleteAccountAndData = async () => {
+    if (isDeleting) {
+      return;
+    }
+
+    if (!isOnline) {
+      toast.error('You are offline', {
+        description: 'Reconnect to delete account data.',
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Delete account and all data? This permanently removes every account and transaction and signs you out.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch('/api/user', { method: 'DELETE' });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete account data: ${response.status}`);
+      }
+
+      onClearAllData();
+      toast.success('Account data deleted');
+      window.location.assign('/api/auth/logout');
+    } catch (error) {
+      console.error('Failed to delete account data:', error);
+      toast.error('Could not delete account data', {
+        description: 'No changes were made. Please try again.',
+      });
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/90 backdrop-blur-md">
@@ -122,6 +166,17 @@ export function AppHeader({ accounts, setAccounts, user, pendingSyncCount, isSyn
                     <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
+              </div>
+              <div className="px-6 pb-4">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="h-11 w-full text-sm"
+                  onClick={handleDeleteAccountAndData}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Deleting...' : 'Delete Account & Data'}
+                </Button>
               </div>
               {/* Auth0 recommends plain anchors for auth endpoints to avoid client-side interception. */}
               {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

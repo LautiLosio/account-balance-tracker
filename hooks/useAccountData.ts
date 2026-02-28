@@ -596,6 +596,13 @@ export function useAccountData(initialAccounts: Account[]) {
     });
   };
 
+  const clearAllLocalData = useCallback(() => {
+    setAccounts([]);
+    persistAccounts([]);
+    setQueueAndPersist([]);
+    setLastSyncAt(null);
+  }, [persistAccounts, setQueueAndPersist]);
+
   return {
     accounts,
     setAccounts: (next: Account[]) => {
@@ -606,6 +613,7 @@ export function useAccountData(initialAccounts: Account[]) {
     deleteAccount,
     addAccount,
     addTransaction,
+    clearAllLocalData,
     syncNow: flushQueue,
     isSyncing,
     isOnline,

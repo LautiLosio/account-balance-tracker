@@ -21,7 +21,7 @@ interface MainAccountsClientProps {
 
 export function MainAccountsClient({ initialAccounts, user }: MainAccountsClientProps) {
   const [txSheetOpen, setTxSheetOpen] = useState(false);
-  const { accounts, setAccounts, addAccount, addTransaction, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
+  const { accounts, setAccounts, addAccount, addTransaction, clearAllLocalData, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
 
   const totalLocalBalance = useMemo(
     () => accounts.filter((a) => !a.isForeignCurrency).reduce((s, a) => s + a.currentBalance, 0),
@@ -69,6 +69,7 @@ export function MainAccountsClient({ initialAccounts, user }: MainAccountsClient
         isSyncing={isSyncing}
         isOnline={isOnline}
         onSyncNow={syncNow}
+        onClearAllData={clearAllLocalData}
       />
 
       <div className="mx-auto max-w-screen-lg px-4 pb-28 pt-6 sm:px-6 sm:pb-12 sm:pt-8 lg:pb-10">

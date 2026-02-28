@@ -18,7 +18,7 @@ interface AccountHistoryClientProps {
 
 export function AccountHistoryClient({ accountId, initialAccounts, user }: AccountHistoryClientProps) {
   const router = useRouter();
-  const { accounts, setAccounts, deleteAccount, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
+  const { accounts, setAccounts, deleteAccount, clearAllLocalData, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
   const account = accounts.find((item) => item.id === accountId);
   const navigateToAccounts = useCallback(() => {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -39,6 +39,7 @@ export function AccountHistoryClient({ accountId, initialAccounts, user }: Accou
         isSyncing={isSyncing}
         isOnline={isOnline}
         onSyncNow={syncNow}
+        onClearAllData={clearAllLocalData}
       />
       <div className="mx-auto max-w-screen-lg space-y-5 px-4 pb-12 pt-5 sm:px-6 sm:pt-7">
         <Link
