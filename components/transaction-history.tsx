@@ -1,13 +1,13 @@
 'use client'
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Info } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Info, Trash2 } from 'lucide-react'
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+} from '@/components/ui/collapsible'
 import { Account } from '@/types/schema'
 
 interface TransactionHistoryProps {
@@ -22,71 +22,82 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
     }
   }
 
+  const sortedTransactions = [...account.transactions].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  )
+
   return (
-    <>
-      <Card className='mb-4'>
-        <Collapsible className='flex flex-col'>
+    <div className="space-y-5">
+      <Card className="rounded-3xl border border-black/10 bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-black/35">
+        <Collapsible className="flex flex-col">
           <CollapsibleTrigger className="flex flex-1">
-            <CardHeader className='flex-1'>
-              <CardTitle className='flex flex-1 justify-between items-center gap-2'>
-                Account Details
+            <CardHeader className="flex-1">
+              <CardTitle className="flex flex-1 items-center justify-between gap-2">
+                <div>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Overview</p>
+                  <p className="font-display text-3xl text-zinc-900 dark:text-zinc-100">{account.name}</p>
+                </div>
                 <Info className="h-6 w-6" />
               </CardTitle>
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <CardContent>
-              <ul className="grid grid-cols-2 flex-wrap gap-4">
-                <li><span className="font-semibold">ID:</span> {account.id}</li>
-                <li><span className="font-semibold">Name:</span> {account.name}</li>
-                <li><span className="font-semibold">Initial Balance:</span> {account.initialBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</li>
-                <li><span className="font-semibold">Currency:</span> {account.isForeignCurrency ? 'Foreign' : 'Local'}</li>
-                <li><span className="font-semibold">Current Balance:</span> {account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</li>
-                <li><span className="font-semibold">Number of Transactions:</span> {account.transactions.length}</li>
+            <CardContent className="space-y-4">
+              <ul className="grid gap-2 text-sm sm:grid-cols-2">
+                <li><span className="font-mono text-[11px] uppercase tracking-[0.2em]">ID</span><p>{account.id}</p></li>
+                <li><span className="font-mono text-[11px] uppercase tracking-[0.2em]">Currency</span><p>{account.isForeignCurrency ? 'Foreign' : 'Local'}</p></li>
+                <li><span className="font-mono text-[11px] uppercase tracking-[0.2em]">Initial</span><p>{account.initialBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</p></li>
+                <li><span className="font-mono text-[11px] uppercase tracking-[0.2em]">Current</span><p>{account.currentBalance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</p></li>
               </ul>
               <Button
                 variant="destructive"
-                className="mt-4"
+                className="rounded-full"
                 onClick={handleDeleteAccount}
               >
-                Delete Account
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete account
               </Button>
             </CardContent>
           </CollapsibleContent>
         </Collapsible>
       </Card>
 
-      <Card>
+      <Card className="rounded-3xl border border-black/10 bg-white/80 backdrop-blur-md dark:border-white/10 dark:bg-black/35">
         <CardHeader>
-          <CardTitle className="flex justify-between items-center">
-            <span>Transactions</span>
-          </CardTitle>
+          <CardTitle className="font-display text-3xl">Transactions</CardTitle>
         </CardHeader>
-        {account.transactions.length === 0 && (
-          <CardContent className='text-muted-foreground'>No transactions yet.</CardContent>
+
+        {sortedTransactions.length === 0 && (
+          <CardContent className="font-mono text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
+            No transactions yet.
+          </CardContent>
         )}
-        {account.transactions.length > 0 && (
+
+        {sortedTransactions.length > 0 && (
           <CardContent>
-            <div className="space-y-2">
-              {account.transactions.map(transaction => (
-                <div key={transaction.id} className="flex justify-between items-center p-2 gap-2 border-b last:border-b-0">
+            <div className="space-y-3">
+              {sortedTransactions.map(transaction => (
+                <article
+                  key={transaction.id}
+                  className="grid gap-2 rounded-2xl border border-black/10 bg-white/75 p-3 dark:border-white/10 dark:bg-black/30 sm:grid-cols-[1fr_auto] sm:items-center"
+                >
                   <div>
-                    <div className="font-semibold capitalize">{transaction.description}</div>
-                    <div className="text-sm text-gray-500">
+                    <p className="font-semibold capitalize">{transaction.description}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
                       {typeof transaction.date === 'string'
                         ? new Date(transaction.date).toLocaleString('es-AR')
                         : transaction.date.toLocaleString('es-AR')}
-                    </div>
+                    </p>
                   </div>
-                  <div className={`font-semibold ${transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className={`font-display text-xl ${transaction.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {transaction.amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}
-                  </div>
-                </div>
+                  </p>
+                </article>
               ))}
             </div>
           </CardContent>
         )}
       </Card>
-    </>
+    </div>
   )
 }

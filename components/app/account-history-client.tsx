@@ -18,13 +18,22 @@ interface AccountHistoryClientProps {
 
 export function AccountHistoryClient({ accountId, initialAccounts, user }: AccountHistoryClientProps) {
   const router = useRouter();
-  const { accounts, setAccounts, deleteAccount } = useAccountData(initialAccounts);
+  const { accounts, setAccounts, deleteAccount, syncNow, isOnline, isSyncing, pendingSyncCount } = useAccountData(initialAccounts);
   const account = accounts.find((item) => item.id === accountId);
 
   return (
-    <div className="container mx-auto max-w-4xl p-4">
-      <AppHeader accounts={accounts} setAccounts={setAccounts} user={user} />
-      <Button variant="ghost" className="mb-4" asChild>
+    <div className="relative isolate mx-auto min-h-screen max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_8%,rgba(255,145,77,0.22),transparent_38%),radial-gradient(circle_at_88%_12%,rgba(66,186,230,0.17),transparent_34%)]" />
+      <AppHeader
+        accounts={accounts}
+        setAccounts={setAccounts}
+        user={user}
+        pendingSyncCount={pendingSyncCount}
+        isSyncing={isSyncing}
+        isOnline={isOnline}
+        onSyncNow={syncNow}
+      />
+      <Button variant="ghost" className="mb-4 rounded-full border border-black/10 bg-white/70 px-4 backdrop-blur-md dark:border-white/10 dark:bg-black/35" asChild>
         <Link href="/accounts">
           <ArrowLeftCircle className="mr-2 h-4 w-4" />
           Back to accounts
