@@ -2,10 +2,21 @@ import { toast } from 'sonner'
 import { Account, Transaction } from '@/types/schema'
 import { UserProfile } from '@auth0/nextjs-auth0/client'
 
+const ensureUniqueId = (candidate: string | undefined, usedIds: Set<string>) => {
+  if (candidate && !usedIds.has(candidate)) {
+    usedIds.add(candidate)
+    return candidate
+  }
+
+  const generatedId = crypto.randomUUID()
+  usedIds.add(generatedId)
+  return generatedId
+}
+
 export const exportAllDataCSV = (accounts: Account[]) => {
   const accountsCSV = accounts.map(a => `${a.id},${a.name},${a.initialBalance},${a.currentBalance},${a.isForeignCurrency}`).join('\n')
   const transactionsCSV = accounts.flatMap(a => a.transactions
-    .filter(t => t.type !== 'transfer' || t.fromAccount === a.id) // Only export transfers from the 'from' account
+    .filter(t => t.type !== 'transfer' || t.fromAccount === a.id)
     .map(t =>
       `${t.id},${t.date instanceof Date ? t.date.toISOString() : new Date(t.date).toISOString()},${t.description},${t.amount},${t.type},${t.fromAccount || ''},${t.toAccount || ''},${t.exchangeRate || ''}`
     )).join('\n')
@@ -29,9 +40,9 @@ export const downloadCSV = (csv: string, filename: string) => {
 }
 
 export const importAccountTransactions = async (
-  content: string, 
-  accountId: number, 
-  accounts: Account[], 
+  content: string,
+  accountId: string,
+  accounts: Account[],
   setAccounts: (accounts: Account[]) => void,
   user: UserProfile | undefined
 ) => {
@@ -39,41 +50,41 @@ export const importAccountTransactions = async (
     toast.error('You must be logged in to import data')
     return
   }
-  
+
   try {
     const lines = content.split('\n')
     const initialBalance = parseFloat(lines[0].split(',')[1])
     const currentBalance = parseFloat(lines[1].split(',')[1])
-    const transactions = lines.slice(4).map(line => {
+
+    const usedTransactionIds = new Set(accounts.flatMap(acc => acc.transactions.map(t => t.id)))
+    const transactions = lines.slice(4).filter(Boolean).map(line => {
       const values = line.split(',')
       return {
-        id: Math.max(0, ...accounts.flatMap(acc => acc.transactions.map(t => t.id))) + 1,
+        id: ensureUniqueId(undefined, usedTransactionIds),
         date: new Date(values[0]),
         description: values[1],
         amount: parseFloat(values[2]),
         type: values[3] as 'income' | 'expense' | 'transfer',
-        fromAccount: parseInt(values[4]),
-        toAccount: values[5] ? parseInt(values[5]) : undefined,
+        fromAccount: values[4] || accountId,
+        toAccount: values[5] || undefined,
         exchangeRate: values[6] ? parseFloat(values[6]) : undefined
       }
     })
 
-    // Update UI first
     const updatedAccounts = accounts.map(account => {
       if (account.id === accountId) {
         return {
           ...account,
           initialBalance,
           currentBalance,
-          transactions: transactions
+          transactions
         }
       }
       return account
     })
-    
+
     setAccounts(updatedAccounts)
-    
-    // Save to API
+
     const accountToUpdate = updatedAccounts.find(a => a.id === accountId)
     if (accountToUpdate) {
       const response = await fetch(`/api/accounts/${accountId}`, {
@@ -83,11 +94,11 @@ export const importAccountTransactions = async (
         },
         body: JSON.stringify({ account: accountToUpdate }),
       })
-      
+
       if (!response.ok) {
         throw new Error('Failed to save account transactions')
       }
-      
+
       toast.success('Account transactions imported successfully')
     }
   } catch (error) {
@@ -97,7 +108,7 @@ export const importAccountTransactions = async (
 }
 
 export const importAllData = async (
-  content: string, 
+  content: string,
   setAccounts: (accounts: Account[]) => void,
   user: UserProfile | undefined
 ) => {
@@ -105,16 +116,25 @@ export const importAllData = async (
     toast.error('You must be logged in to import data')
     return
   }
-  
+
   try {
     const [accountsSection, transactionsSection] = content.split('\n\n')
-    const accountLines = accountsSection.split('\n').slice(2)
-    const transactionLines = transactionsSection.split('\n').slice(2)
+    const accountLines = accountsSection.split('\n').slice(2).filter(Boolean)
+    const transactionLines = transactionsSection.split('\n').slice(2).filter(Boolean)
+
+    const usedAccountIds = new Set<string>()
+    const accountIdMap = new Map<string, string>()
 
     const importedAccounts = accountLines.map(line => {
-      const [id, name, initialBalance, currentBalance, isForeignCurrency] = line.split(',')
+      const [rawId, name, initialBalance, currentBalance, isForeignCurrency] = line.split(',')
+      const mappedId = ensureUniqueId(rawId, usedAccountIds)
+
+      if (!accountIdMap.has(rawId)) {
+        accountIdMap.set(rawId, mappedId)
+      }
+
       return {
-        id: parseInt(id),
+        id: mappedId,
         name,
         initialBalance: parseFloat(initialBalance),
         currentBalance: parseFloat(currentBalance),
@@ -123,16 +143,17 @@ export const importAllData = async (
       }
     })
 
+    const usedTransactionIds = new Set<string>()
     const transactions: Transaction[] = transactionLines.map(line => {
-      const [id, date, description, amount, type, fromAccount, toAccount, exchangeRate] = line.split(',')
+      const [rawId, date, description, amount, type, fromAccount, toAccount, exchangeRate] = line.split(',')
       return {
-        id: parseInt(id),
+        id: ensureUniqueId(rawId, usedTransactionIds),
         date: new Date(date),
         description,
         amount: parseFloat(amount),
         type: type as 'income' | 'expense' | 'transfer',
-        fromAccount: parseInt(fromAccount),
-        toAccount: toAccount ? parseInt(toAccount) : undefined,
+        fromAccount: accountIdMap.get(fromAccount) || fromAccount,
+        toAccount: toAccount ? (accountIdMap.get(toAccount) || toAccount) : undefined,
         exchangeRate: exchangeRate ? parseFloat(exchangeRate) : undefined
       }
     })
@@ -153,10 +174,8 @@ export const importAllData = async (
       }
     })
 
-    // Update UI first
     setAccounts(importedAccounts)
-    
-    // Save to API
+
     const response = await fetch('/api/accounts', {
       method: 'POST',
       headers: {
@@ -164,11 +183,11 @@ export const importAllData = async (
       },
       body: JSON.stringify({ accounts: importedAccounts }),
     })
-    
+
     if (!response.ok) {
       throw new Error('Failed to save imported data')
     }
-    
+
     toast.success('Data imported successfully')
   } catch (error) {
     console.error('Error importing data:', error)
@@ -177,17 +196,17 @@ export const importAllData = async (
 }
 
 export const handleFileImport = (
-  event: React.ChangeEvent<HTMLInputElement>, 
+  event: React.ChangeEvent<HTMLInputElement>,
   accounts: Account[],
   setAccounts: (accounts: Account[]) => void,
   user: UserProfile | undefined,
-  accountId?: number
+  accountId?: string
 ) => {
   if (!user) {
     toast.error('You must be logged in to import data')
     return
   }
-  
+
   const file = event.target.files?.[0]
   if (!file) return
 

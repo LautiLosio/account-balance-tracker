@@ -14,7 +14,7 @@ import { UserProfile } from '@auth0/nextjs-auth0/client'
 interface TransactionHistoryProps {
   user: UserProfile | undefined
   account: Account
-  onDeleteAccount: (accountId: number) => void
+  onDeleteAccount: (accountId: string) => void
 }
 
 export function TransactionHistory({ user, account, onDeleteAccount }: TransactionHistoryProps) {

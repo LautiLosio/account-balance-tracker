@@ -1,6 +1,6 @@
 // Define the Account type
 export interface Account {
-  id: number;
+  id: string;
   name: string;
   initialBalance: number;
   currentBalance: number;
@@ -10,13 +10,13 @@ export interface Account {
 
 // Define the Transaction type
 export interface Transaction {
-  id: number;
+  id: string;
   date: Date;
   description: string;
   amount: number;
   type: 'income' | 'expense' | 'transfer';
-  fromAccount: number;
-  toAccount?: number;
+  fromAccount: string;
+  toAccount?: string;
   exchangeRate?: number;
 }
 

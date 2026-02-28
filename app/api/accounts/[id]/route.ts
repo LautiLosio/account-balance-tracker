@@ -7,25 +7,25 @@ import { Account } from '@/types/schema';
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getSession();
-    
+
     // Check if user is authenticated
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const userId = session.user.sub;
-    const accountId = parseInt(params.id);
-    
-    if (isNaN(accountId)) {
+    const accountId = params.id;
+
+    if (!accountId) {
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });
     }
-    
+
     const account = await getAccount(userId, accountId);
-    
+
     if (!account) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
-    
+
     return NextResponse.json({ account });
   } catch (error) {
     console.error('Error fetching account:', error);
@@ -37,27 +37,27 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getSession();
-    
+
     // Check if user is authenticated
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const userId = session.user.sub;
-    const accountId = parseInt(params.id);
-    
-    if (isNaN(accountId)) {
+    const accountId = params.id;
+
+    if (!accountId) {
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });
     }
-    
+
     const { account } = await req.json() as { account: Account };
-    
+
     if (!account || account.id !== accountId) {
       return NextResponse.json({ error: 'Invalid account data' }, { status: 400 });
     }
-    
+
     const success = await saveAccount(userId, account);
-    
+
     if (success) {
       return NextResponse.json({ success: true, account });
     } else {
@@ -73,21 +73,21 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getSession();
-    
+
     // Check if user is authenticated
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const userId = session.user.sub;
-    const accountId = parseInt(params.id);
-    
-    if (isNaN(accountId)) {
+    const accountId = params.id;
+
+    if (!accountId) {
       return NextResponse.json({ error: 'Invalid account ID' }, { status: 400 });
     }
-    
+
     const success = await deleteAccount(userId, accountId);
-    
+
     if (success) {
       return NextResponse.json({ success: true });
     } else {

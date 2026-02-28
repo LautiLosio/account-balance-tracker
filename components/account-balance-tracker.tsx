@@ -132,7 +132,7 @@ export function AccountBalanceTrackerComponent() {
     addTransaction
   } = useAccountData()
   
-  const [viewingTransactions, setViewingTransactions] = useState<number | null>(null)
+  const [viewingTransactions, setViewingTransactions] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleExport = () => {
@@ -153,7 +153,7 @@ export function AccountBalanceTrackerComponent() {
     }
   }
 
-  const handleViewTransactions = (accountId: number) => {
+  const handleViewTransactions = (accountId: string) => {
     setViewingTransactions(accountId)
   }
 
@@ -161,7 +161,7 @@ export function AccountBalanceTrackerComponent() {
     setViewingTransactions(null)
   }
 
-  const handleDeleteAccount = async (accountId: number) => {
+  const handleDeleteAccount = async (accountId: string) => {
     await deleteAccount(accountId)
     setViewingTransactions(null)
   }
