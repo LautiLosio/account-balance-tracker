@@ -46,7 +46,9 @@ export function TransactionHistory({ account, onDeleteAccount }: TransactionHist
             <div>
               <span className={cn(
                 'inline-block rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider',
-                account.isForeignCurrency ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+                account.isForeignCurrency
+                  ? 'bg-lime-200/70 text-lime-900 dark:bg-primary/15 dark:text-primary'
+                  : 'bg-muted text-muted-foreground'
               )}>
                 {account.isForeignCurrency ? 'Foreign' : 'Local'} · #{account.id}
               </span>

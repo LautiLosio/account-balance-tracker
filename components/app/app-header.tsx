@@ -27,7 +27,11 @@ export function AppHeader() {
   } = useAppData();
 
   const SyncIcon = !isOnline ? CloudOff : isSyncing ? RefreshCw : pendingSyncCount > 0 ? Zap : CheckCircle2;
-  const syncColor = !isOnline ? 'text-rose-500' : isSyncing || pendingSyncCount > 0 ? 'text-amber-400' : 'text-primary';
+  const syncColor = !isOnline
+    ? 'text-rose-600 dark:text-rose-500'
+    : isSyncing || pendingSyncCount > 0
+      ? 'text-amber-600 dark:text-amber-400'
+      : 'text-lime-700 dark:text-primary';
   const syncLabel = !isOnline ? 'Offline' : isSyncing ? 'Syncing' : pendingSyncCount > 0 ? `${pendingSyncCount} pending` : 'Synced';
 
   const handleDeleteAccountAndData = async () => {
