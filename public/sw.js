@@ -1,4 +1,4 @@
-const CACHE_NAME = "pocket-ledger-v2";
+const CACHE_NAME = "pocket-ledger-v3";
 const APP_SHELL_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -36,6 +36,12 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Never cache API/auth traffic. Auth0 relies on one-time state/nonces and
+  // caching these responses can break logout/login flows with server errors.
+  if (url.pathname.startsWith("/api/")) {
     return;
   }
 
