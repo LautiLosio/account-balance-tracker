@@ -2,10 +2,11 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: "Pocket Ledger",
     short_name: "Ledger",
     description: "Offline-first personal balance tracker",
-    start_url: "/",
+    start_url: "/accounts",
     scope: "/",
     display: "standalone",
     orientation: "portrait",

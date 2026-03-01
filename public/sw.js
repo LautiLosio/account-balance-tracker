@@ -1,9 +1,10 @@
-const CACHE_NAME = "pocket-ledger-v1";
+const CACHE_NAME = "pocket-ledger-v3";
 const APP_SHELL_ASSETS = [
-  "/",
+  "/accounts",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/icon-512-maskable.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -54,7 +55,20 @@ self.addEventListener("fetch", (event) => {
           void caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
           return networkResponse;
         })
-        .catch(() => cachedResponse);
+        .catch(async () => {
+          if (request.mode === "navigate") {
+            const cachedAppShell = await caches.match("/accounts");
+            if (cachedAppShell) {
+              return cachedAppShell;
+            }
+          }
+
+          return new Response("Offline", {
+            status: 503,
+            statusText: "Offline",
+            headers: { "Content-Type": "text/plain" },
+          });
+        });
     })
   );
 });
